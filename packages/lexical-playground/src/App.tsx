@@ -10,11 +10,16 @@ import {$createLinkNode} from '@lexical/link';
 import {$createListItemNode, $createListNode} from '@lexical/list';
 import {LexicalComposer} from '@lexical/react/LexicalComposer';
 import {$createHeadingNode, $createQuoteNode} from '@lexical/rich-text';
-import {$createParagraphNode, $createTextNode, $getRoot} from 'lexical';
+import {
+  $createParagraphNode,
+  $createTextNode,
+  $getRoot,
+  ParagraphNode,
+} from 'lexical';
 import * as React from 'react';
 
-// import { $createCodeNodeN } from '../../lexical-code/src/cnNext';
-import {getCodeOverrides} from '../../lexical-code/src/codeHltrNext';
+import {CodeLineNodeN} from '../../lexical-code/src/clnNext';
+import {$isCodeNodeN} from '../../lexical-code/src/cnNext';
 import {isDevPlayground} from './appSettings';
 import {SettingsContext, useSettings} from './context/SettingsContext';
 import {SharedAutocompleteContext} from './context/SharedAutocompleteContext';
@@ -138,7 +143,18 @@ function App(): JSX.Element {
       ? undefined
       : prepopulatedRichText,
     namespace: 'Playground',
-    nodes: [...PlaygroundNodes, ...getCodeOverrides()],
+    nodes: [
+      ...PlaygroundNodes,
+      {
+        replace: ParagraphNode,
+        with: (node) => {
+          const parentNode = node.getParent();
+          if ($isCodeNodeN(parentNode)) {
+            return new CodeLineNodeN();
+          }
+        },
+      },
+    ],
     onError: (error: Error) => {
       throw error;
     },

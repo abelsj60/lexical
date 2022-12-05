@@ -248,9 +248,8 @@ function BlockFormatDropDown({
             const textContent = selection.getTextContent();
             // add parent before text insert. avoids error
             selection.insertNodes([codeNode]);
-            selection = $getSelection();
-            if ($isRangeSelection(selection))
-              selection.insertRawText(textContent);
+            codeNode.insertRawText(textContent);
+            // selection.insertRawText(textContent);
           }
         }
       });
