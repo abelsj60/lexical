@@ -65,17 +65,14 @@ import * as React from 'react';
 import {IS_APPLE} from 'shared/environment';
 
 import {
-  $createCodeLineNode,
-  $isCodeLineNodeN,
   CODE_LANGUAGE_FRIENDLY_NAME_MAP,
   CODE_LANGUAGE_MAP,
   getLanguageFriendlyName,
 } from '../../../../lexical-code/src/clnNext';
 import {
-  $createCodeNodeN,
+  $createCodeNode,
   $isCodeNodeN,
 } from '../../../../lexical-code/src/cnNext';
-import {dispatchCodeToPlainTextCommand} from '../../../../lexical-code/src/codeHltrNext';
 import useModal from '../../hooks/useModal';
 import catTypingGif from '../../images/cat-typing.gif';
 import {$createStickyNode} from '../../nodes/StickyNode';

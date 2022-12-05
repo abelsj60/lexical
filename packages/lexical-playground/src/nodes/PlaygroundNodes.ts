@@ -5,7 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+
 // eslint-disable-next-line simple-import-sort/imports
+import type {Klass, LexicalNode} from 'lexical';
+
+// import {CodeHighlightNode, CodeNode} from '@lexical/code';
 import {HashtagNode} from '@lexical/hashtag';
 import {AutoLinkNode, LinkNode} from '@lexical/link';
 import {ListItemNode, ListNode} from '@lexical/list';
@@ -33,17 +37,22 @@ import {StickyNode} from './StickyNode';
 import {TableNode as NewTableNode} from './TableNode';
 import {TweetNode} from './TweetNode';
 import {YouTubeNode} from './YouTubeNode';
+import {CodeNodeN} from '../../../lexical-code/src/cnNext';
+import {CodeLineNodeN} from '../../../lexical-code/src/clnNext';
+import {CodeHighlightNodeN} from '../../../lexical-code/src/chnNext';
 
 const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   HeadingNode,
   ListNode,
   ListItemNode,
   QuoteNode,
+  // CodeNode,
   NewTableNode,
   TableNode,
   TableCellNode,
   TableRowNode,
   HashtagNode,
+  // CodeHighlightNode,
   AutoLinkNode,
   LinkNode,
   OverflowNode,
@@ -64,7 +73,10 @@ const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   CollapsibleContainerNode,
   CollapsibleContentNode,
   CollapsibleTitleNode,
-  ...getCodeNodes(),
+
+  CodeNodeN,
+  CodeLineNodeN,
+  CodeHighlightNodeN,
 ];
 
 export default PlaygroundNodes;

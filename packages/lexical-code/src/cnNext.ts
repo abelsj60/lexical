@@ -45,14 +45,8 @@ import 'prismjs/components/prism-rust';
 import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-swift';
 
-export interface CodeNodeOptions {
-  codeOnly: boolean;
-  defaultLanguage: string | undefined;
-  tokenizer: Tokenizer | null;
-}
-export interface SerializableCodeNodeOptions extends CodeNodeOptions {
-  tokenizer: null;
-}
+import * as Prism from 'prismjs';
+import {addClassNamesToElement} from '../../lexical-utils/src';
 
 type SerializedCodeNodeN = Spread<
   {
@@ -85,7 +79,7 @@ export class CodeNodeN extends ElementNode {
   }
 
   static clone(node: CodeNodeN): CodeNodeN {
-    return new CodeNodeN(node.__language, node.__options, node.__key);
+    return new CodeNodeN(node.__language, node.__key);
   }
 
   constructor(
@@ -210,11 +204,8 @@ export class CodeNodeN extends ElementNode {
     };
   }
 
-  static importJSON(serializedNode: SerializedCodeNodeN): CodeNodeN {
-    const node = $createCodeNodeN(
-      serializedNode.__language,
-      serializedNode.__options,
-    );
+  static importJSON(serializedNode: SerializedCodeNode): CodeNodeN {
+    const node = $createCodeNode(serializedNode.language);
     node.setFormat(serializedNode.format);
     node.setIndent(serializedNode.indent);
     node.setDirection(serializedNode.direction); // TODO: remove?
@@ -418,11 +409,9 @@ export class CodeNodeN extends ElementNode {
 
 export function $createCodeNodeN(
   language?: string | null | undefined,
-  options?: Partial<CodeNodeOptions>,
 ): CodeNodeN {
-  return new CodeNodeN(language, options);
+  return new CodeNodeN(language);
 }
-
 export function $isCodeNodeN(
   node: LexicalNode | null | undefined,
 ): node is CodeNodeN {

@@ -169,6 +169,7 @@
   },
   "dependencies": {
     "@types/katex": "^0.14.0",
+    "prismjs": "^1.29.0",
     "yjs": "^13.5.42"
   }
 }
