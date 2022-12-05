@@ -230,7 +230,8 @@ function BlockFormatDropDown({
             const textContent = selection.getTextContent();
             const codeNode = $createCodeNode();
             selection.insertNodes([codeNode]);
-            selection.insertRawText(textContent);
+            codeNode.insertRawText(textContent);
+            // selection.insertRawText(textContent);
           }
         }
       });

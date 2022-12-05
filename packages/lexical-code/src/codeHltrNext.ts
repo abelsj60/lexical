@@ -38,10 +38,8 @@ import {
 import {mergeRegister} from '../../lexical-utils/src';
 import {$isCodeHighlightNodeN, CodeHighlightNodeN} from './chnNext';
 import {
-  $createCodeLineNode,
   $isCodeLineNodeN,
   CodeLineNodeN,
-  DEFAULT_CODE_LANGUAGE,
   getLinesFromSelection,
   isInsideCodeNode,
 } from './clnNext';
@@ -50,35 +48,35 @@ import {$isCodeNodeN, CodeNodeN} from './cnNext';
 type ArrowTypes = 'KEY_ARROW_UP_COMMAND' | 'KEY_ARROW_DOWN_COMMAND';
 type DentTypes = 'INDENT_CONTENT_COMMAND' | 'OUTDENT_CONTENT_COMMAND';
 
-function plainTextToCodeTransform(codeNode: CodeNodeN) {
-  // When new code block inserted it might not have language selected
-  if (codeNode.getLanguage() === undefined) {
-    codeNode.setLanguage(DEFAULT_CODE_LANGUAGE);
-  }
+// function plainTextToCodeTransform(codeNode: CodeNodeN) {
+//   // When new code block inserted it might not have language selected
+//   if (codeNode.getLanguage() === undefined) {
+//     codeNode.setLanguage(DEFAULT_CODE_LANGUAGE);
+//   }
 
-  const lines = codeNode.getChildren().reduce((lineHolder, child) => {
-    child
-      .getTextContent()
-      .split(/\n/g)
-      .forEach((line) => {
-        const newLine = $createCodeLineNode();
-        const code = newLine.getHighlightNodes(line) as CodeHighlightNodeN[];
+//   const lines = codeNode.getChildren().reduce((lineHolder, child) => {
+//     child
+//       .getTextContent()
+//       .split(/\n/g)
+//       .forEach((line) => {
+//         const newLine = $createCodeLineNode();
+//         const code = newLine.getHighlightNodes(line) as CodeHighlightNodeN[];
 
-        newLine.append(...code);
-        lineHolder.push(newLine);
-      });
+//         newLine.append(...code);
+//         lineHolder.push(newLine);
+//       });
 
-    return lineHolder;
-  }, [] as CodeLineNodeN[]);
+//     return lineHolder;
+//   }, [] as CodeLineNodeN[]);
 
-  codeNode.splice(0, lines.length, lines);
+//   codeNode.splice(0, lines.length, lines);
 
-  const lastLine = codeNode.getLastChild();
+//   const lastLine = codeNode.getLastChild();
 
-  if (lastLine !== null) {
-    lastLine.nextSelection(lastLine.getChildrenSize());
-  }
-}
+//   if (lastLine !== null) {
+//     lastLine.nextSelection(lastLine.getChildrenSize());
+//   }
+// }
 
 function updateHighlightsTransform(highlightNode: CodeHighlightNodeN) {
   const line = highlightNode.getParent();
@@ -616,14 +614,14 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
       },
       COMMAND_PRIORITY_LOW,
     ),
-    editor.registerNodeTransform(CodeNodeN, (node) => {
-      const isInitialized = node.getChildren().some((child) => {
-        return $isCodeLineNodeN(child);
-      });
+    // editor.registerNodeTransform(CodeNodeN, (node) => {
+    //   const isInitialized = node.getChildren().some((child) => {
+    //     return $isCodeLineNodeN(child);
+    //   });
 
-      if (isInitialized) return;
-      plainTextToCodeTransform(node);
-    }),
+    //   if (isInitialized) return;
+    //   plainTextToCodeTransform(node);
+    // }),
     editor.registerNodeTransform(ParagraphNode, (node) => {
       // const selection = $getSelection();
     }),

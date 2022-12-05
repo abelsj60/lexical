@@ -33,8 +33,11 @@ import 'prismjs/components/prism-swift';
 
 import * as Prism from 'prismjs';
 import {addClassNamesToElement} from '../../lexical-utils/src';
+import {DEFAULT_CODE_LANGUAGE} from './CodeHighlightNode';
+import {$createCodeLineNode, CodeLineNodeN} from './clnNext';
+import {CodeHighlightNodeN} from './chnNext';
 
-type SerializedCodeNode = Spread<
+type SerializedCodeNodeN = Spread<
   {
     language: string | null | undefined;
     type: 'code';
@@ -176,7 +179,7 @@ export class CodeNodeN extends ElementNode {
     };
   }
 
-  static importJSON(serializedNode: SerializedCodeNode): CodeNodeN {
+  static importJSON(serializedNode: SerializedCodeNodeN): CodeNodeN {
     const node = $createCodeNode(serializedNode.language);
     node.setFormat(serializedNode.format);
     node.setIndent(serializedNode.indent);
@@ -184,7 +187,7 @@ export class CodeNodeN extends ElementNode {
     return node;
   }
 
-  exportJSON(): SerializedCodeNode {
+  exportJSON(): SerializedCodeNodeN {
     return {
       ...super.exportJSON(),
       language: this.getLanguage(),
@@ -201,6 +204,29 @@ export class CodeNodeN extends ElementNode {
     newElement.selectStart();
 
     return newElement;
+  }
+
+  insertRawText(text: string) {
+    if (typeof this.getLanguage() === 'undefined') {
+      this.setLanguage(DEFAULT_CODE_LANGUAGE);
+    }
+
+    const lines = text.split(/\n/g).reduce((lineHolder, line) => {
+      const newLine = $createCodeLineNode();
+      const code = newLine.getHighlightNodes(line) as CodeHighlightNodeN[];
+
+      newLine.append(...code);
+      lineHolder.push(newLine);
+
+      return lineHolder;
+    }, [] as CodeLineNodeN[]);
+
+    this.splice(0, lines.length, lines);
+    const lastLine = this.getLastChild() as CodeLineNodeN;
+
+    if (lastLine !== null) {
+      lastLine.nextSelection(lastLine.getChildrenSize());
+    }
   }
 
   canIndent() {
