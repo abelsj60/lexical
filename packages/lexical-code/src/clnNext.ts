@@ -19,27 +19,18 @@ import {
   EditorConfig,
   $isRangeSelection,
   SerializedElementNode,
+  NodeSelection,
+  GridSelection,
 } from 'lexical';
 
 import * as Prism from 'prismjs';
 
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-markup';
-import 'prismjs/components/prism-markdown';
-import 'prismjs/components/prism-c';
-import 'prismjs/components/prism-css';
-import 'prismjs/components/prism-objectivec';
-import 'prismjs/components/prism-sql';
-import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-rust';
-import 'prismjs/components/prism-swift';
 import {
   $createCodeHighlightNode,
-  $isCodeHighlightNode,
-  CodeHighlightNode,
+  $isCodeHighlightNodeN,
+  CodeHighlightNodeN,
 } from './chnNext';
-import {$isCodeNode} from './cnNext';
+import {$isCodeNodeN} from './cnNext';
 
 export const DEFAULT_CODE_LANGUAGE = 'javascript';
 
@@ -95,7 +86,7 @@ export const getCodeLanguages = (): Array<string> =>
     )
     .sort();
 
-export class CodeLineNode extends ElementNode {
+export class CodeLineNodeN extends ElementNode {
   constructor(key?: NodeKey) {
     super(key);
   }
@@ -104,11 +95,11 @@ export class CodeLineNode extends ElementNode {
     return 'code-line';
   }
 
-  static clone(node: CodeLineNode): CodeLineNode {
-    return new CodeLineNode(node.__key);
+  static clone(node: CodeLineNodeN): CodeLineNodeN {
+    return new CodeLineNodeN(node.__key);
   }
 
-  // append(nodesToAppend: CodeHighlightNode[]): this {
+  // append(nodesToAppend: CodeHighlightNodeN[]): this {
   //   if (Array.isArray(nodesToAppend)) {
   //     const self = this.getLatest();
   //     const childrenSize = self.getChildrenSize();
@@ -209,7 +200,7 @@ export class CodeLineNode extends ElementNode {
       });
 
       if (!isCurrent) {
-        const code = self.getHighlightNodes(text) as CodeHighlightNode[];
+        const code = self.getHighlightNodes(text) as CodeHighlightNodeN[];
         self.splice(0, self.getChildrenSize(), code);
 
         return true;
@@ -223,7 +214,7 @@ export class CodeLineNode extends ElementNode {
     // TODO: set text, run update instead?
     // add initial code via .append
     const self = this.getLatest();
-    const code = self.getHighlightNodes(text) as CodeHighlightNode[];
+    const code = self.getHighlightNodes(text) as CodeHighlightNodeN[];
 
     self.splice(0, self.getChildrenSize(), code);
   }
@@ -378,7 +369,7 @@ export class CodeLineNode extends ElementNode {
         if (typeof line !== 'undefined' && Array.isArray(linesForUpdate)) {
           if (isCollapsed) {
             // is empty line, help lexical insert initial text
-            const code = line.getHighlightNodes(text) as CodeHighlightNode[];
+            const code = line.getHighlightNodes(text) as CodeHighlightNodeN[];
             const firstHighlight = line.getFirstChild();
 
             line.append(...code);
@@ -449,7 +440,7 @@ export class CodeLineNode extends ElementNode {
     const self = this.getLatest();
     const codeNode = self.getParent();
 
-    if ($isCodeNode(codeNode)) {
+    if ($isCodeNodeN(codeNode)) {
       const lastLine = codeNode.getLastChild();
 
       if (lastLine !== null) {
@@ -490,7 +481,7 @@ export class CodeLineNode extends ElementNode {
             if (!isMultiLineRange) {
               const code = line.getHighlightNodes(
                 lineSpacers,
-              ) as CodeHighlightNode[];
+              ) as CodeHighlightNodeN[];
               newLine.append(...code); // append initial code
             } else if (Array.isArray(splitText)) {
               const [textBeforeSplit, textAfterSplit] = splitText;
@@ -499,15 +490,15 @@ export class CodeLineNode extends ElementNode {
               if (!selection.isBackward()) {
                 code = line.getHighlightNodes(
                   `${lineSpacers}${textAfterSplit}`,
-                ) as CodeHighlightNode[];
+                ) as CodeHighlightNodeN[];
               } else {
-                // is CodeLineNode when a backward selection starts at the bottom
-                const newLineText = !$isCodeLineNode(bottomPoint.getNode())
+                // is CodeLineNodeN when a backward selection starts at the bottom
+                const newLineText = !$isCodeLineNodeN(bottomPoint.getNode())
                   ? `${lineSpacers}${textAfterSplit}`
                   : lineSpacers;
                 code = line.getHighlightNodes(
                   newLineText,
-                ) as CodeHighlightNode[];
+                ) as CodeHighlightNodeN[];
                 line.replaceLineCode(textBeforeSplit);
               }
 
@@ -536,7 +527,7 @@ export class CodeLineNode extends ElementNode {
   }
 
   updateDOM(
-    prevNode: CodeHighlightNode,
+    prevNode: CodeHighlightNodeN,
     dom: HTMLElement,
     config: EditorConfig,
   ) {
@@ -547,8 +538,8 @@ export class CodeLineNode extends ElementNode {
   //   return {};
   // }
 
-  static importJSON(): CodeLineNode {
-    // static importJSON(serializedNode: SerializedCodeLineNode): CodeLineNode {
+  static importJSON(): CodeLineNodeN {
+    // static importJSON(serializedNode: SerializedCodeLineNode): CodeLineNodeN {
     return $createCodeLineNode();
   }
 
@@ -564,13 +555,13 @@ export class CodeLineNode extends ElementNode {
 }
 
 export function $createCodeLineNode() {
-  return new CodeLineNode();
+  return new CodeLineNodeN();
 }
 
-export function $isCodeLineNode(
-  node: LexicalNode | CodeLineNode | null | undefined,
-): node is CodeLineNode {
-  return node instanceof CodeLineNode;
+export function $isCodeLineNodeN(
+  node: LexicalNode | CodeLineNodeN | null | undefined,
+): node is CodeLineNodeN {
+  return node instanceof CodeLineNodeN;
 }
 
 interface PlainHighlight {
@@ -582,7 +573,7 @@ function getHighlightNodes(
   tokens: (string | Prism.Token)[],
   forComparison = false,
 ) {
-  const nextLine: (PlainHighlight | CodeHighlightNode)[] = [];
+  const nextLine: (PlainHighlight | CodeHighlightNodeN)[] = [];
 
   tokens.forEach((token, idx) => {
     if (typeof token === 'string') {
@@ -637,8 +628,8 @@ export function getLinesFromSelection(selection: RangeSelection) {
   const topPoint = selection.isBackward() ? focus : anchor;
   const bottomPoint = selection.isBackward() ? anchor : focus;
 
-  const topLine = (getLineFromPoint(topPoint) as CodeLineNode) || null;
-  const bottomLine = (getLineFromPoint(bottomPoint) as CodeLineNode) || null;
+  const topLine = (getLineFromPoint(topPoint) as CodeLineNodeN) || null;
+  const bottomLine = (getLineFromPoint(bottomPoint) as CodeLineNodeN) || null;
 
   const skipLineSearch =
     topLine === null || bottomLine === null || !isInsideCodeNode(selection);
@@ -658,7 +649,7 @@ export function getLinesFromSelection(selection: RangeSelection) {
 
   const lineRangeFromSelection = codeNode
     .getChildren()
-    .slice(startingLineIndex, endingLineIndex) as CodeLineNode[];
+    .slice(startingLineIndex, endingLineIndex) as CodeLineNodeN[];
 
   const topLineOffset = topLine.getLineOffset(topPoint);
   const bottomLineOffset = bottomLine.getLineOffset(bottomPoint);
@@ -679,8 +670,8 @@ export function getLinesFromSelection(selection: RangeSelection) {
 }
 
 export function handleMultiLineDelete(
-  line: CodeLineNode,
-  linesForUpdate: CodeLineNode[],
+  line: CodeLineNodeN,
+  linesForUpdate: CodeLineNodeN[],
   topPoint: Point,
 ) {
   const originalOffset = topPoint.offset;
@@ -716,24 +707,29 @@ function getLineFromPoint(point: Point) {
 
   if (
     parentNode !== null &&
-    $isCodeLineNode(parentNode) &&
+    $isCodeLineNodeN(parentNode) &&
     parentNode.getChildren().length > 0
   ) {
     return parentNode;
-  } else if ($isCodeLineNode(pointNode) || $isParagraphNode(pointNode)) {
+  } else if ($isCodeLineNodeN(pointNode) || $isParagraphNode(pointNode)) {
     return pointNode;
   }
 
   return null;
 }
 
-function isInsideCodeNode(selection: RangeSelection) {
-  const anchorNode = selection.anchor.getNode();
+export function isInsideCodeNode(
+  selection: RangeSelection | NodeSelection | GridSelection | null,
+) {
+  if (!$isRangeSelection(selection)) return false;
+
+  const anchor = selection?.anchor;
+  const anchorNode = anchor?.getNode();
 
   switch (true) {
-    case $isCodeHighlightNode(anchorNode):
-    case $isCodeLineNode(anchorNode):
-    case $isCodeNode(anchorNode):
+    case $isCodeHighlightNodeN(anchorNode):
+    case $isCodeLineNodeN(anchorNode):
+    case $isCodeNodeN(anchorNode):
       return true;
     default:
       return false;

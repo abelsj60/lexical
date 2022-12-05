@@ -22,6 +22,7 @@ import {TablePlugin} from '@lexical/react/LexicalTablePlugin';
 import * as React from 'react';
 import {useRef, useState} from 'react';
 
+import CodeHighlightPluginN from '../../lexical-code/src/codeHltrNext';
 import {createWebsocketProvider} from './collaboration';
 import {useSettings} from './context/SettingsContext';
 import {useSharedHistoryContext} from './context/SharedHistoryContext';
@@ -32,7 +33,7 @@ import AutoEmbedPlugin from './plugins/AutoEmbedPlugin';
 import AutoLinkPlugin from './plugins/AutoLinkPlugin';
 import ClickableLinkPlugin from './plugins/ClickableLinkPlugin';
 import CodeActionMenuPlugin from './plugins/CodeActionMenuPlugin';
-import CodeHighlightPlugin from './plugins/CodeHighlightPlugin';
+// import CodeHighlightPlugin from './plugins/CodeHighlightPlugin';
 import CollapsiblePlugin from './plugins/CollapsiblePlugin';
 import CommentPlugin from './plugins/CommentPlugin';
 import ComponentPickerPlugin from './plugins/ComponentPickerPlugin';
@@ -119,6 +120,7 @@ export default function Editor(): JSX.Element {
         }`}
         ref={scrollRef}>
         {isMaxLength && <MaxLengthPlugin maxLength={30} />}
+        <CodeHighlightPluginN />
         <AutoFocusPlugin />
         <ClearEditorPlugin />
         <ComponentPickerPlugin />
@@ -157,7 +159,7 @@ export default function Editor(): JSX.Element {
               ErrorBoundary={ErrorBoundary}
             />
             <MarkdownShortcutPlugin />
-            <CodeHighlightPlugin />
+            {/* <CodeHighlightPlugin /> */}
             <ListPlugin />
             <CheckListPlugin />
             <ListMaxIndentLevelPlugin maxDepth={7} />

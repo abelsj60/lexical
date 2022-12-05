@@ -6,6 +6,9 @@
  *
  */
 
+import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
+import * as React from 'react';
+
 import {
   $createTextNode,
   $getNodeByKey,
@@ -31,26 +34,23 @@ import {
   ParagraphNode,
   PASTE_COMMAND,
   TextNode,
-} from 'packages/lexical/src';
-import {mergeRegister} from 'packages/lexical-utils/src';
-
-import {
-  $isCodeHighlightNode,
-  CodeHighlightNode,
-  DEFAULT_CODE_LANGUAGE,
-} from './chnNext';
+} from '../../lexical/src';
+import {mergeRegister} from '../../lexical-utils/src';
+import {$isCodeHighlightNodeN, CodeHighlightNodeN} from './chnNext';
 import {
   $createCodeLineNode,
-  $isCodeLineNode,
-  CodeLineNode,
+  $isCodeLineNodeN,
+  CodeLineNodeN,
+  DEFAULT_CODE_LANGUAGE,
   getLinesFromSelection,
+  isInsideCodeNode,
 } from './clnNext';
-import {$isCodeNode, CodeNode} from './cnNext';
+import {$isCodeNodeN, CodeNodeN} from './cnNext';
 
 type ArrowTypes = 'KEY_ARROW_UP_COMMAND' | 'KEY_ARROW_DOWN_COMMAND';
 type DentTypes = 'INDENT_CONTENT_COMMAND' | 'OUTDENT_CONTENT_COMMAND';
 
-function plainTextToCodeTransform(codeNode: CodeNode) {
+function plainTextToCodeTransform(codeNode: CodeNodeN) {
   // When new code block inserted it might not have language selected
   if (codeNode.getLanguage() === undefined) {
     codeNode.setLanguage(DEFAULT_CODE_LANGUAGE);
@@ -62,14 +62,14 @@ function plainTextToCodeTransform(codeNode: CodeNode) {
       .split(/\n/g)
       .forEach((line) => {
         const newLine = $createCodeLineNode();
-        const code = newLine.getHighlightNodes(line) as CodeHighlightNode[];
+        const code = newLine.getHighlightNodes(line) as CodeHighlightNodeN[];
 
         newLine.append(...code);
         lineHolder.push(newLine);
       });
 
     return lineHolder;
-  }, [] as CodeLineNode[]);
+  }, [] as CodeLineNodeN[]);
 
   codeNode.splice(0, lines.length, lines);
 
@@ -80,10 +80,10 @@ function plainTextToCodeTransform(codeNode: CodeNode) {
   }
 }
 
-function updateHighlightsTransform(highlightNode: CodeHighlightNode) {
+function updateHighlightsTransform(highlightNode: CodeHighlightNodeN) {
   const line = highlightNode.getParent();
 
-  if ($isCodeLineNode(line)) {
+  if ($isCodeLineNodeN(line)) {
     const selection = $getSelection();
 
     if (selection !== null && $isRangeSelection(selection)) {
@@ -99,14 +99,14 @@ function updateHighlightsTransform(highlightNode: CodeHighlightNode) {
 }
 
 function codeToPlainTextTransform(node: TextNode) {
-  if (!$isCodeHighlightNode(node)) return;
+  if (!$isCodeHighlightNodeN(node)) return;
 
   // When code block converted into paragraph or other element
   // code highlight nodes converted back to normal text
   node.replace($createTextNode(node.__text));
 }
 
-function updateCodeGutter(node: CodeNode, editor: LexicalEditor): void {
+function updateCodeGutter(node: CodeNodeN, editor: LexicalEditor): void {
   const codeElement = editor.getElementByKey(node.getKey());
 
   if (codeElement === null) {
@@ -123,7 +123,7 @@ function updateCodeGutter(node: CodeNode, editor: LexicalEditor): void {
 
   const firstChildNode = node.getChildAtIndex(0);
   const isCodeLineOrParagraphNode =
-    $isCodeLineNode(firstChildNode) || $isParagraphNode(firstChildNode);
+    $isCodeLineNodeN(firstChildNode) || $isParagraphNode(firstChildNode);
   // @ts-ignore:: internal field
   codeElement.__cachedChildrenLength = childrenLength;
   let gutter = '1';
@@ -157,7 +157,7 @@ function getTopNode() {
   return null;
 }
 
-function doLineIndent(line: CodeLineNode, type: DentTypes) {
+function doLineIndent(line: CodeLineNodeN, type: DentTypes) {
   const spaces = 2;
 
   const text = line.getTextContent();
@@ -269,7 +269,7 @@ function handleTabs(event: KeyboardEvent) {
           const lineSpacers = line.makeSpace(spaces);
           const code = line.getHighlightNodes(
             lineSpacers,
-          ) as CodeHighlightNode[];
+          ) as CodeHighlightNodeN[];
 
           line.append(...code);
         } else {
@@ -336,10 +336,10 @@ function handleBorders(type: ArrowTypes, event: KeyboardEvent): boolean {
 
     const {topLine: line} = getLinesFromSelection(selection);
 
-    if ($isCodeLineNode(line)) {
+    if ($isCodeLineNodeN(line)) {
       const codeNode = line.getParent();
 
-      if ($isCodeNode(codeNode)) {
+      if ($isCodeNodeN(codeNode)) {
         const isArrowUp = type === 'KEY_ARROW_UP_COMMAND';
 
         const goToPreviousBlock = isArrowUp && line.isStartOfFirstLine();
@@ -392,7 +392,7 @@ function handleShiftingLines(type: ArrowTypes, event: KeyboardEvent): boolean {
   const isArrowUp = type === 'KEY_ARROW_UP_COMMAND';
 
   if (typeof topLine !== 'undefined' && Array.isArray(linesForUpdate)) {
-    if (!$isCodeNode(topLine.getParent())) {
+    if (!$isCodeNodeN(topLine.getParent())) {
       // TODO: what about adjacent code blocks?
       // we only want to move lines around if they're in a code block
       return false;
@@ -412,7 +412,7 @@ function handleShiftingLines(type: ArrowTypes, event: KeyboardEvent): boolean {
     if (displacedLine !== null) {
       const codeNode = topLine.getParent();
 
-      if ($isCodeNode(codeNode)) {
+      if ($isCodeNodeN(codeNode)) {
         const displacedLineIndex = displacedLine.getIndexWithinParent();
 
         codeNode.splice(displacedLineIndex, 0, linesForUpdate);
@@ -448,7 +448,7 @@ function handleMoveTo(
 
   const {topLine: line} = getLinesFromSelection(selection);
 
-  if ($isCodeLineNode(line)) {
+  if ($isCodeLineNodeN(line)) {
     const isMoveToStart = type === 'MOVE_TO_START';
 
     event.preventDefault();
@@ -461,7 +461,7 @@ function handleMoveTo(
       ? line.getChildFromLineOffset(firstCharacterIndex)
       : line.getChildFromLineOffset(lastCharacterIndex);
 
-    if ($isCodeLineNode(childFromLineOffset)) {
+    if ($isCodeLineNodeN(childFromLineOffset)) {
       childFromLineOffset.select(updatedChildOffset, updatedChildOffset);
     }
   }
@@ -469,22 +469,24 @@ function handleMoveTo(
   return true;
 }
 
-export function registerCodeHighlighting(editor: LexicalEditor) {
-  if (!editor.hasNodes([CodeNode, CodeLineNode, CodeHighlightNode])) {
+export function registerCodeHighlightingN(editor: LexicalEditor) {
+  if (!editor.hasNodes([CodeNodeN, CodeLineNodeN, CodeHighlightNodeN])) {
     throw new Error(
-      'CodeHighlightPlugin: CodeNode, CodeLineNode, or CodeHighlightNode not registered on editor',
+      'CodeHighlightPlugin: CodeNodeN, CodeLineNodeN, or CodeHighlightNodeN not registered on editor',
     );
   }
 
   return mergeRegister(
-    editor.registerMutationListener(CodeNode, (mutations) => {
+    editor.registerMutationListener(CodeNodeN, (mutations) => {
       editor.update(() => {
-        for (const [key, type] of mutations) {
-          if (type !== 'destroyed') {
-            const node = $getNodeByKey(key);
+        if (isInsideCodeNode($getSelection())) {
+          for (const [key, type] of mutations) {
+            if (type !== 'destroyed') {
+              const node = $getNodeByKey(key);
 
-            if (node !== null) {
-              updateCodeGutter(node as CodeNode, editor);
+              if (node !== null) {
+                updateCodeGutter(node as CodeNodeN, editor);
+              }
             }
           }
         }
@@ -493,109 +495,130 @@ export function registerCodeHighlighting(editor: LexicalEditor) {
     editor.registerCommand(
       INSERT_PARAGRAPH_COMMAND,
       () => {
-        // DON'T use KEY_ENTER_COMMAND b/c Lexical will
-        // try to run paragraph logic, which results
-        // in two newLines for many enters
-        const selection = $getSelection();
+        if (isInsideCodeNode($getSelection())) {
+          // DON'T use KEY_ENTER_COMMAND b/c Lexical will
+          // try to run paragraph logic, which results
+          // in two newLines for many enters
+          const selection = $getSelection();
 
-        if (!$isRangeSelection(selection)) return false;
+          if (!$isRangeSelection(selection)) return false;
 
-        const topNode = getTopNode();
+          const topNode = getTopNode();
 
-        switch (true) {
-          case $isCodeNode(topNode):
-          case $isCodeLineNode(topNode):
-          case $isCodeHighlightNode(topNode):
-            // cancel command and run manually to prevent conflicts
-            // with insertParagraph
-            (
-              topNode as CodeNode | CodeLineNode | CodeHighlightNode
-            ).insertNewAfter();
-            return true;
-          case $isRootNode(selection.anchor.getNode()):
-            // cancel and run manually to prevent errors
-            selection.insertParagraph();
-            return true;
-          default:
-            return false;
+          switch (true) {
+            case $isCodeNodeN(topNode):
+            case $isCodeLineNodeN(topNode):
+            case $isCodeHighlightNodeN(topNode):
+              // cancel command and run manually to prevent conflicts
+              // with insertParagraph
+              (
+                topNode as CodeNodeN | CodeLineNodeN | CodeHighlightNodeN
+              ).insertNewAfter();
+              return true;
+            case $isRootNode(selection.anchor.getNode()):
+              // cancel and run manually to prevent errors
+              selection.insertParagraph();
+              return true;
+            default:
+              return false;
+          }
         }
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
     editor.registerCommand(
       CONTROLLED_TEXT_INSERTION_COMMAND,
       (payload) => {
-        // cancel and run manually to prevent conflicts
-        // with default text/paragraph logic
+        if (isInsideCodeNode($getSelection())) {
+          // cancel and run manually to prevent conflicts
+          // with default text/paragraph logic
 
-        const topNode = getTopNode();
+          const topNode = getTopNode();
 
-        switch (true) {
-          // run custom insertion on empty lines
-          case $isCodeLineNode(topNode) && topNode.isEmptyLine():
-            // TODO: check this (could also be InputEvent?)
-            return (topNode as CodeLineNode).insertControlledText(
-              payload as string,
-            );
-          default:
-            return false;
+          switch (true) {
+            // run custom insertion on empty lines
+            case $isCodeLineNodeN(topNode) && topNode.isEmptyLine():
+              // TODO: check this (could also be InputEvent?)
+              return (topNode as CodeLineNodeN).insertControlledText(
+                payload as string,
+              );
+            default:
+              return false;
+          }
         }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
     editor.registerCommand(
       CUT_COMMAND,
       (payload) => {
-        // cancel and run manually to prevent conflicts
-        // with default text/paragraph logic
+        if (isInsideCodeNode($getSelection())) {
+          // cancel and run manually to prevent conflicts
+          // with default text/paragraph logic
 
-        const topNode = getTopNode();
+          const topNode = getTopNode();
 
-        switch (true) {
-          // run custom insertion on empty lines
-          case $isCodeLineNode(topNode):
-            return (topNode as CodeLineNode).isEmptyLine();
-          default:
-            return false;
+          switch (true) {
+            // run custom insertion on empty lines
+            case $isCodeLineNodeN(topNode):
+              return (topNode as CodeLineNodeN).isEmptyLine();
+            default:
+              return false;
+          }
         }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
     editor.registerCommand(
       PASTE_COMMAND,
       (payload) => {
-        switch (true) {
-          // run custom insertion on empty lines
-          // case $isCodeLineNode(topNode):
-          //   return topNode.isEmptyLine();
-          default:
-            return false;
+        if (isInsideCodeNode($getSelection())) {
+          switch (true) {
+            // run custom insertion on empty lines
+            // case $isCodeLineNodeN(topNode):
+            //   return topNode.isEmptyLine();
+            default:
+              return false;
+          }
         }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
     editor.registerCommand(
       DELETE_CHARACTER_COMMAND,
       () => {
-        // cancel and run manually to prevent conflicts
-        // with default text/paragraph logic
-        const topNode = getTopNode();
+        if (isInsideCodeNode($getSelection())) {
+          // cancel and run manually to prevent conflicts
+          // with default text/paragraph logic
+          const topNode = getTopNode();
 
-        switch (true) {
-          case $isCodeLineNode(topNode):
-          case $isCodeHighlightNode(topNode):
-            // codeLine: delete empty line (no kids)
-            // codeHighlight: delete line and merge text w/prev
-            return (topNode as CodeLineNode | CodeHighlightNode).deleteLine();
-          default:
-            return false;
+          switch (true) {
+            case $isCodeLineNodeN(topNode):
+            case $isCodeHighlightNodeN(topNode):
+              // codeLine: delete empty line (no kids)
+              // codeHighlight: delete line and merge text w/prev
+              return (
+                topNode as CodeLineNodeN | CodeHighlightNodeN
+              ).deleteLine();
+            default:
+              return false;
+          }
         }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
-    editor.registerNodeTransform(CodeNode, (node) => {
+    editor.registerNodeTransform(CodeNodeN, (node) => {
       const isInitialized = node.getChildren().some((child) => {
-        return $isCodeLineNode(child);
+        return $isCodeLineNodeN(child);
       });
 
       if (isInitialized) return;
@@ -605,80 +628,126 @@ export function registerCodeHighlighting(editor: LexicalEditor) {
       // const selection = $getSelection();
     }),
     editor.registerNodeTransform(TextNode, (node) => {
-      codeToPlainTextTransform(node);
+      if (isInsideCodeNode($getSelection())) {
+        codeToPlainTextTransform(node);
+      }
+
+      return false;
     }),
-    editor.registerNodeTransform(CodeHighlightNode, (node) => {
+    editor.registerNodeTransform(CodeHighlightNodeN, (node) => {
       // TODO: init check may not work in playground...
-      const isInitialized = $getPreviousSelection() !== null;
-      const selection = $getSelection();
+      if (isInsideCodeNode($getSelection())) {
+        const isInitialized = $getPreviousSelection() !== null;
+        const selection = $getSelection();
 
-      if ($isRangeSelection(selection)) {
-        if (!isInitialized) return; // TODO: REMOVE! not working
+        if ($isRangeSelection(selection)) {
+          if (!isInitialized) return; // TODO: REMOVE! not working
 
-        switch (true) {
-          case isInitialized:
-            return updateHighlightsTransform(node);
-          default:
-            return false;
+          switch (true) {
+            case isInitialized:
+              return updateHighlightsTransform(node);
+            default:
+              return false;
+          }
         }
       }
+
+      return false;
     }),
     editor.registerCommand(
       INDENT_CONTENT_COMMAND,
       (payload) => {
-        return handleDents('INDENT_CONTENT_COMMAND');
+        if (isInsideCodeNode($getSelection())) {
+          return handleDents('INDENT_CONTENT_COMMAND');
+        }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
     editor.registerCommand(
       OUTDENT_CONTENT_COMMAND,
       (payload) => {
-        return handleDents('OUTDENT_CONTENT_COMMAND');
+        if (isInsideCodeNode($getSelection())) {
+          return handleDents('OUTDENT_CONTENT_COMMAND');
+        }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
     editor.registerCommand(
       KEY_TAB_COMMAND,
       (payload) => {
-        return handleTabs(payload);
+        if (isInsideCodeNode($getSelection())) {
+          return handleTabs(payload);
+        }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
     editor.registerCommand(
       KEY_ARROW_UP_COMMAND,
       (payload) => {
-        if (!payload.altKey) {
-          return handleBorders('KEY_ARROW_UP_COMMAND', payload);
-        } else {
-          return handleShiftingLines('KEY_ARROW_UP_COMMAND', payload);
+        if (isInsideCodeNode($getSelection())) {
+          if (!payload.altKey) {
+            return handleBorders('KEY_ARROW_UP_COMMAND', payload);
+          } else {
+            return handleShiftingLines('KEY_ARROW_UP_COMMAND', payload);
+          }
         }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
     editor.registerCommand(
       KEY_ARROW_DOWN_COMMAND,
       (payload) => {
-        if (!payload.altKey) {
-          return handleBorders('KEY_ARROW_DOWN_COMMAND', payload);
-        } else {
-          return handleShiftingLines('KEY_ARROW_DOWN_COMMAND', payload);
+        if (isInsideCodeNode($getSelection())) {
+          if (!payload.altKey) {
+            return handleBorders('KEY_ARROW_DOWN_COMMAND', payload);
+          } else {
+            return handleShiftingLines('KEY_ARROW_DOWN_COMMAND', payload);
+          }
         }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
     editor.registerCommand(
       MOVE_TO_END,
       (payload) => {
-        return handleMoveTo('MOVE_TO_END', payload);
+        if (isInsideCodeNode($getSelection())) {
+          return handleMoveTo('MOVE_TO_END', payload);
+        }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
     editor.registerCommand(
       MOVE_TO_START,
       (payload) => {
-        return handleMoveTo('MOVE_TO_START', payload);
+        if (isInsideCodeNode($getSelection())) {
+          return handleMoveTo('MOVE_TO_START', payload);
+        }
+
+        return false;
       },
       COMMAND_PRIORITY_LOW,
     ),
   );
+}
+
+export default function CodeHighlightPluginN(): JSX.Element | null {
+  const [editor] = useLexicalComposerContext();
+
+  React.useEffect(() => {
+    return registerCodeHighlightingN(editor);
+  }, [editor]);
+
+  return null;
 }

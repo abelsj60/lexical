@@ -32,7 +32,7 @@ import 'prismjs/components/prism-rust';
 import 'prismjs/components/prism-swift';
 
 import * as Prism from 'prismjs';
-import {addClassNamesToElement} from 'packages/lexical-utils/src';
+import {addClassNamesToElement} from '../../lexical-utils/src';
 
 type SerializedCodeNode = Spread<
   {
@@ -52,19 +52,9 @@ const mapToPrismLanguage = (
     : undefined;
 };
 
-// function hasChildDOMNodeTag(node: Node, tagName: string) {
-//   for (const child of node.childNodes) {
-//     if (child instanceof HTMLElement && child.tagName === tagName) {
-//       return true;
-//     }
-//     hasChildDOMNodeTag(child, tagName);
-//   }
-//   return false;
-// }
-
 const LANGUAGE_DATA_ATTRIBUTE = 'data-highlight-language';
 
-export class CodeNode extends ElementNode {
+export class CodeNodeN extends ElementNode {
   /** @internal */
   __language: string | null | undefined;
 
@@ -72,8 +62,8 @@ export class CodeNode extends ElementNode {
     return 'code';
   }
 
-  static clone(node: CodeNode): CodeNode {
-    return new CodeNode(node.__language, node.__key);
+  static clone(node: CodeNodeN): CodeNodeN {
+    return new CodeNodeN(node.__language, node.__key);
   }
 
   constructor(language?: string | null | undefined, key?: NodeKey) {
@@ -96,7 +86,7 @@ export class CodeNode extends ElementNode {
     return element;
   }
 
-  updateDOM(prevNode: CodeNode, dom: HTMLElement): boolean {
+  updateDOM(prevNode: CodeNodeN, dom: HTMLElement): boolean {
     const language = this.__language;
     const prevLanguage = prevNode.__language;
 
@@ -186,8 +176,7 @@ export class CodeNode extends ElementNode {
     };
   }
 
-  static importJSON(serializedNode: SerializedCodeNode): CodeNode {
-    // console.log('3. importJSON CN:', serializedNode)
+  static importJSON(serializedNode: SerializedCodeNode): CodeNodeN {
     const node = $createCodeNode(serializedNode.language);
     node.setFormat(serializedNode.format);
     node.setIndent(serializedNode.indent);
@@ -237,13 +226,13 @@ export class CodeNode extends ElementNode {
 }
 export function $createCodeNode(
   language?: string | null | undefined,
-): CodeNode {
-  return new CodeNode(language);
+): CodeNodeN {
+  return new CodeNodeN(language);
 }
-export function $isCodeNode(
+export function $isCodeNodeN(
   node: LexicalNode | null | undefined,
-): node is CodeNode {
-  return node instanceof CodeNode;
+): node is CodeNodeN {
+  return node instanceof CodeNodeN;
 }
 
 function convertPreElement(domNode: Node): DOMConversionOutput {

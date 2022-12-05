@@ -166,6 +166,7 @@
     }
   },
   "dependencies": {
-    "@types/katex": "^0.14.0"
+    "@types/katex": "^0.14.0",
+    "prismjs": "^1.29.0"
   }
 }

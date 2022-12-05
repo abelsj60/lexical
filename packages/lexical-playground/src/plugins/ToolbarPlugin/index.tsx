@@ -8,13 +8,6 @@
 
 import type {LexicalEditor, NodeKey} from 'lexical';
 
-import {
-  $createCodeNode,
-  $isCodeNode,
-  CODE_LANGUAGE_FRIENDLY_NAME_MAP,
-  CODE_LANGUAGE_MAP,
-  getLanguageFriendlyName,
-} from '@lexical/code';
 import {$isLinkNode, TOGGLE_LINK_COMMAND} from '@lexical/link';
 import {
   $isListNode,
@@ -70,6 +63,15 @@ import {useCallback, useEffect, useState} from 'react';
 import * as React from 'react';
 import {IS_APPLE} from 'shared/environment';
 
+import {
+  CODE_LANGUAGE_FRIENDLY_NAME_MAP,
+  CODE_LANGUAGE_MAP,
+  getLanguageFriendlyName,
+} from '../../../../lexical-code/src/clnNext';
+import {
+  $createCodeNode,
+  $isCodeNodeN,
+} from '../../../../lexical-code/src/cnNext';
 import useModal from '../../hooks/useModal';
 import catTypingGif from '../../images/cat-typing.gif';
 import {$createStickyNode} from '../../nodes/StickyNode';
@@ -216,6 +218,7 @@ function BlockFormatDropDown({
   };
 
   const formatCode = () => {
+    // <-- HERE
     if (blockType !== 'code') {
       editor.update(() => {
         const selection = $getSelection();
@@ -289,7 +292,7 @@ function BlockFormatDropDown({
         <i className="icon quote" />
         <span className="text">Quote</span>
       </DropDownItem>
-      <DropDownItem
+      <DropDownItem // <-- HERE
         className={'item ' + dropDownActiveClass(blockType === 'code')}
         onClick={formatCode}>
         <i className="icon code" />
@@ -411,7 +414,7 @@ export default function ToolbarPlugin(): JSX.Element {
       setIsStrikethrough(selection.hasFormat('strikethrough'));
       setIsSubscript(selection.hasFormat('subscript'));
       setIsSuperscript(selection.hasFormat('superscript'));
-      setIsCode(selection.hasFormat('code'));
+      setIsCode(selection.hasFormat('code')); // <-- HERE
       setIsRTL($isParentElementRTL(selection));
 
       // Update links
@@ -441,7 +444,8 @@ export default function ToolbarPlugin(): JSX.Element {
           if (type in blockTypeToBlockName) {
             setBlockType(type as keyof typeof blockTypeToBlockName);
           }
-          if ($isCodeNode(element)) {
+          if ($isCodeNodeN(element)) {
+            // <-- HERE
             const language =
               element.getLanguage() as keyof typeof CODE_LANGUAGE_MAP;
             setCodeLanguage(
@@ -566,11 +570,12 @@ export default function ToolbarPlugin(): JSX.Element {
   }, [editor, isLink]);
 
   const onCodeLanguageSelect = useCallback(
+    // <-- HERE
     (value: string) => {
       activeEditor.update(() => {
         if (selectedElementKey !== null) {
           const node = $getNodeByKey(selectedElementKey);
-          if ($isCodeNode(node)) {
+          if ($isCodeNodeN(node)) {
             node.setLanguage(value);
           }
         }
@@ -615,11 +620,11 @@ export default function ToolbarPlugin(): JSX.Element {
           <Divider />
         </>
       )}
-      {blockType === 'code' ? (
+      {blockType === 'code' ? ( // <-- HERE
         <>
           <DropDown
             disabled={!isEditable}
-            buttonClassName="toolbar-item code-language"
+            buttonClassName="toolbar-item code-language" // <-- HERE
             buttonLabel={getLanguageFriendlyName(codeLanguage)}
             buttonAriaLabel="Select language">
             {CODE_LANGUAGE_OPTIONS.map(([value, name]) => {
@@ -687,7 +692,7 @@ export default function ToolbarPlugin(): JSX.Element {
             }`}>
             <i className="format underline" />
           </button>
-          <button
+          <button // <-- HERE (coditional toolbr items)
             disabled={!isEditable}
             onClick={() => {
               activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'code');

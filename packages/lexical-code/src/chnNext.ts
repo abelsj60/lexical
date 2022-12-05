@@ -7,18 +7,6 @@
  */
 
 // eslint-disable-next-line simple-import-sort/imports
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-markup';
-import 'prismjs/components/prism-markdown';
-import 'prismjs/components/prism-c';
-import 'prismjs/components/prism-css';
-import 'prismjs/components/prism-objectivec';
-import 'prismjs/components/prism-sql';
-import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-rust';
-import 'prismjs/components/prism-swift';
-
 import {
   $getSelection,
   $isRangeSelection,
@@ -30,18 +18,15 @@ import {
   Spread,
   TextNode,
 } from 'lexical';
-import * as Prism from 'prismjs';
 import {
   addClassNamesToElement,
   removeClassNamesFromElement,
-} from 'packages/lexical-utils/src';
+} from '../../lexical-utils/src';
 import {
   $createCodeLineNode,
   getLinesFromSelection,
   handleMultiLineDelete,
 } from './clnNext';
-
-export const DEFAULT_CODE_LANGUAGE = 'javascript';
 
 type SerializedCodeHighlightNode = Spread<
   {
@@ -52,53 +37,9 @@ type SerializedCodeHighlightNode = Spread<
   SerializedTextNode
 >;
 
-export const CODE_LANGUAGE_FRIENDLY_NAME_MAP: Record<string, string> = {
-  c: 'C',
-  clike: 'C-like',
-  css: 'CSS',
-  html: 'HTML',
-  js: 'JavaScript',
-  markdown: 'Markdown',
-  objc: 'Objective-C',
-  plain: 'Plain Text',
-  py: 'Python',
-  rust: 'Rust',
-  sql: 'SQL',
-  swift: 'Swift',
-  xml: 'XML',
-};
-
-export const CODE_LANGUAGE_MAP: Record<string, string> = {
-  javascript: 'js',
-  md: 'markdown',
-  plaintext: 'plain',
-  python: 'py',
-  text: 'plain',
-};
-
-export function normalizeCodeLang(lang: string) {
-  return CODE_LANGUAGE_MAP[lang] || lang;
-}
-
-export function getLanguageFriendlyName(lang: string) {
-  const _lang = normalizeCodeLang(lang);
-  return CODE_LANGUAGE_FRIENDLY_NAME_MAP[_lang] || _lang;
-}
-
-export const getDefaultCodeLanguage = (): string => DEFAULT_CODE_LANGUAGE;
-
-export const getCodeLanguages = (): Array<string> =>
-  Object.keys(Prism.languages)
-    .filter(
-      // Prism has several language helpers mixed into languages object
-      // so filtering them out here to get langs list
-      (language) => typeof Prism.languages[language] !== 'function',
-    )
-    .sort();
-
 /** @noInheritDoc */
 
-export class CodeHighlightNode extends TextNode {
+export class CodeHighlightNodeN extends TextNode {
   /** @internal */
   __highlightType: string | null | undefined;
 
@@ -115,8 +56,8 @@ export class CodeHighlightNode extends TextNode {
     return 'code-highlight';
   }
 
-  static clone(node: CodeHighlightNode): CodeHighlightNode {
-    return new CodeHighlightNode(
+  static clone(node: CodeHighlightNodeN): CodeHighlightNodeN {
+    return new CodeHighlightNodeN(
       node.__text,
       node.__highlightType || undefined,
       node.__key,
@@ -196,7 +137,7 @@ export class CodeHighlightNode extends TextNode {
           const leavingTextPlusLineSpacers = `${lineSpacers}${textAfterSplit}`;
           const code = line.getHighlightNodes(
             leavingTextPlusLineSpacers,
-          ) as CodeHighlightNode[];
+          ) as CodeHighlightNodeN[];
 
           newLine.append(...code);
 
@@ -229,7 +170,7 @@ export class CodeHighlightNode extends TextNode {
   }
 
   updateDOM(
-    prevNode: CodeHighlightNode,
+    prevNode: CodeHighlightNodeN,
     dom: HTMLElement,
     config: EditorConfig,
   ) {
@@ -263,7 +204,7 @@ export class CodeHighlightNode extends TextNode {
 
   static importJSON(
     serializedNode: SerializedCodeHighlightNode,
-  ): CodeHighlightNode {
+  ): CodeHighlightNodeN {
     const node = $createCodeHighlightNode(
       serializedNode.text,
       serializedNode.highlightType,
@@ -303,14 +244,14 @@ export class CodeHighlightNode extends TextNode {
 export function $createCodeHighlightNode(
   text: string,
   highlightType?: string | null | undefined,
-): CodeHighlightNode {
-  return new CodeHighlightNode(text, highlightType);
+): CodeHighlightNodeN {
+  return new CodeHighlightNodeN(text, highlightType);
 }
 
-export function $isCodeHighlightNode(
-  node: LexicalNode | CodeHighlightNode | null | undefined,
-): node is CodeHighlightNode {
-  return node instanceof CodeHighlightNode;
+export function $isCodeHighlightNodeN(
+  node: LexicalNode | CodeHighlightNodeN | null | undefined,
+): node is CodeHighlightNodeN {
+  return node instanceof CodeHighlightNodeN;
 }
 
 function getHighlightThemeClass(
