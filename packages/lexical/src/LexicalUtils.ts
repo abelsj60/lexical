@@ -106,13 +106,12 @@ export function $isSelectionCapturedInDecorator(node: Node): boolean {
   return $isDecoratorNode($getNearestNodeFromDOMNode(node));
 }
 
-// TODO change to $ function
 export function isSelectionCapturedInDecoratorInput(anchorDOM: Node): boolean {
   const activeElement = document.activeElement;
   const nodeName = activeElement !== null ? activeElement.nodeName : null;
   return (
-    !$isDecoratorNode($getNearestNodeFromDOMNode(anchorDOM)) ||
-    (nodeName !== 'INPUT' && nodeName !== 'TEXTAREA')
+    $isDecoratorNode($getNearestNodeFromDOMNode(anchorDOM)) &&
+    (nodeName === 'INPUT' || nodeName === 'TEXTAREA')
   );
 }
 
@@ -129,7 +128,7 @@ export function isSelectionWithinEditor(
       rootElement.contains(focusDOM) &&
       // Ignore if selection is within nested editor
       anchorDOM !== null &&
-      isSelectionCapturedInDecoratorInput(anchorDOM as Node) &&
+      !isSelectionCapturedInDecoratorInput(anchorDOM as Node) &&
       getNearestEditorFromDOMNode(anchorDOM) === editor
     );
   } catch (error) {
@@ -264,6 +263,7 @@ export function removeFromParent(writableNode: LexicalNode): void {
     }
     internalMarkSiblingsAsDirty(writableNode);
     children.splice(index, 1);
+    writableNode.__parent = null;
   }
 }
 
@@ -502,6 +502,13 @@ export function createUID(): string {
     .substr(0, 5);
 }
 
+export function getAnchorTextFromDOM(anchorNode: Node): null | string {
+  if (anchorNode.nodeType === DOM_TEXT_TYPE) {
+    return anchorNode.nodeValue;
+  }
+  return null;
+}
+
 export function $updateSelectedTextFromDOM(
   isCompositionEnd: boolean,
   data?: string,
@@ -513,11 +520,10 @@ export function $updateSelectedTextFromDOM(
   }
   const anchorNode = domSelection.anchorNode;
   let {anchorOffset, focusOffset} = domSelection;
-  if (anchorNode !== null && anchorNode.nodeType === DOM_TEXT_TYPE) {
+  if (anchorNode !== null) {
+    let textContent = getAnchorTextFromDOM(anchorNode);
     const node = $getNearestNodeFromDOMNode(anchorNode);
-    if ($isTextNode(node)) {
-      let textContent = anchorNode.nodeValue;
-
+    if (textContent !== null && $isTextNode(node)) {
       // Data is intentionally truthy, as we check for boolean, null and empty string.
       if (textContent === COMPOSITION_SUFFIX && data) {
         const offset = data.length;
@@ -631,7 +637,7 @@ function $previousSiblingDoesNotAcceptText(node: TextNode): boolean {
 // This function is connected to $shouldPreventDefaultAndInsertText and determines whether the
 // TextNode boundaries are writable or we should use the previous/next sibling instead. For example,
 // in the case of a LinkNode, boundaries are not writable.
-function $shouldInsertTextAfterOrBeforeTextNode(
+export function $shouldInsertTextAfterOrBeforeTextNode(
   selection: RangeSelection,
   node: TextNode,
 ): boolean {
@@ -658,50 +664,6 @@ function $shouldInsertTextAfterOrBeforeTextNode(
   } else {
     return false;
   }
-}
-
-// This function is used to determine if Lexical should attempt to override
-// the default browser behavior for insertion of text and use its own internal
-// heuristics. This is an extremely important function, and makes much of Lexical
-// work as intended between different browsers and across word, line and character
-// boundary/formats. It also is important for text replacement, node schemas and
-// composition mechanics.
-export function $shouldPreventDefaultAndInsertText(
-  selection: RangeSelection,
-  text: string,
-): boolean {
-  const anchor = selection.anchor;
-  const focus = selection.focus;
-  const anchorNode = anchor.getNode();
-  const domSelection = getDOMSelection();
-  const domAnchorNode = domSelection !== null ? domSelection.anchorNode : null;
-  const anchorKey = anchor.key;
-  const backingAnchorElement = getActiveEditor().getElementByKey(anchorKey);
-  const textLength = text.length;
-
-  return (
-    anchorKey !== focus.key ||
-    // If we're working with a non-text node.
-    !$isTextNode(anchorNode) ||
-    // If we are replacing a range with a single character or grapheme, and not composing.
-    ((textLength < 2 || doesContainGrapheme(text)) &&
-      anchor.offset !== focus.offset &&
-      !anchorNode.isComposing()) ||
-    // Any non standard text node.
-    $isTokenOrSegmented(anchorNode) ||
-    // If the text length is more than a single character and we're either
-    // dealing with this in "beforeinput" or where the node has already recently
-    // been changed (thus is dirty).
-    (anchorNode.isDirty() && textLength > 1) ||
-    // If the DOM selection element is not the same as the backing node
-    (backingAnchorElement !== null &&
-      !anchorNode.isComposing() &&
-      domAnchorNode !== getDOMTextNode(backingAnchorElement)) ||
-    // Check if we're changing from bold to italics, or some other format.
-    anchorNode.getFormat() !== selection.format ||
-    // One last set of heuristics to check against.
-    $shouldInsertTextAfterOrBeforeTextNode(selection, anchorNode)
-  );
 }
 
 export function isTab(
@@ -1026,21 +988,19 @@ export function setMutatedNode(
   }
 }
 
-export function $nodesOfType<T extends LexicalNode>(
-  klass: Klass<T>,
-): Array<LexicalNode> {
+export function $nodesOfType<T extends LexicalNode>(klass: Klass<T>): Array<T> {
   const editorState = getActiveEditorState();
   const readOnly = editorState._readOnly;
   const klassType = klass.getType();
   const nodes = editorState._nodeMap;
-  const nodesOfType = [];
+  const nodesOfType: Array<T> = [];
   for (const [, node] of nodes) {
     if (
       node instanceof klass &&
       node.__type === klassType &&
       (readOnly || node.isAttached())
     ) {
-      nodesOfType.push(node);
+      nodesOfType.push(node as T);
     }
   }
   return nodesOfType;
@@ -1136,41 +1096,64 @@ export function getElementByKeyOrThrow(
   return element;
 }
 
+export function getParentElement(element: HTMLElement): HTMLElement | null {
+  const parentElement =
+    (element as HTMLSlotElement).assignedSlot || element.parentElement;
+  return parentElement !== null && parentElement.nodeType === 11
+    ? ((parentElement as unknown as ShadowRoot).host as HTMLElement)
+    : parentElement;
+}
+
 export function scrollIntoViewIfNeeded(
   editor: LexicalEditor,
-  anchor: PointType,
+  selectionRect: DOMRect,
   rootElement: HTMLElement,
-  tags: Set<string>,
 ): void {
-  let anchorNode: LexicalNode = anchor.getNode();
-  if ($isElementNode(anchorNode)) {
-    const descendantNode = anchorNode.getDescendantByIndex(anchor.offset);
-    if (descendantNode !== null) {
-      anchorNode = descendantNode;
-    }
+  const doc = rootElement.ownerDocument;
+  const defaultView = doc.defaultView;
+
+  if (defaultView === null) {
+    return;
   }
-  const element = editor.getElementByKey(anchorNode.__key) as Element;
+  let {top: currentTop, bottom: currentBottom} = selectionRect;
+  let targetTop = 0;
+  let targetBottom = 0;
+  let element: HTMLElement | null = rootElement;
 
-  if (element !== null) {
-    const rect = element.getBoundingClientRect();
-
-    if (rect.bottom > getWindow(editor).innerHeight) {
-      element.scrollIntoView(false);
-    } else if (rect.top < 0) {
-      element.scrollIntoView();
+  while (element !== null) {
+    const isBodyElement = element === doc.body;
+    if (isBodyElement) {
+      targetTop = 0;
+      targetBottom = getWindow(editor).innerHeight;
     } else {
-      const rootRect = rootElement.getBoundingClientRect();
+      const targetRect = element.getBoundingClientRect();
+      targetTop = targetRect.top;
+      targetBottom = targetRect.bottom;
+    }
+    let diff = 0;
 
-      // Rects can returning decimal numbers that differ due to rounding
-      // differences. So let's normalize the values.
-      if (Math.floor(rect.bottom) > Math.floor(rootRect.bottom)) {
-        element.scrollIntoView(false);
-      } else if (Math.floor(rect.top) < Math.floor(rootRect.top)) {
-        element.scrollIntoView();
+    if (currentTop < targetTop) {
+      diff = -(targetTop - currentTop);
+    } else if (currentBottom > targetBottom) {
+      diff = currentBottom - targetBottom;
+    }
+
+    if (diff !== 0) {
+      if (isBodyElement) {
+        // Only handles scrolling of Y axis
+        defaultView.scrollBy(0, diff);
+      } else {
+        const scrollTop = element.scrollTop;
+        element.scrollTop += diff;
+        const yOffset = element.scrollTop - scrollTop;
+        currentTop -= yOffset;
+        currentBottom -= yOffset;
       }
     }
-
-    tags.add('scroll-into-view');
+    if (isBodyElement) {
+      break;
+    }
+    element = getParentElement(element);
   }
 }
 
@@ -1242,6 +1225,81 @@ export function $isInlineElementOrDecoratorNode(node: LexicalNode): boolean {
   );
 }
 
+export function $getNearestRootOrShadowRoot(
+  node: LexicalNode,
+): RootNode | ElementNode {
+  let parent = node.getParentOrThrow();
+  while (parent !== null) {
+    if ($isRootOrShadowRoot(parent)) {
+      return parent;
+    }
+    parent = parent.getParentOrThrow();
+  }
+  return parent;
+}
+
 export function $isRootOrShadowRoot(node: null | LexicalNode): boolean {
   return $isRootNode(node) || ($isElementNode(node) && node.isShadowRoot());
+}
+
+export function $copyNode<T extends LexicalNode>(node: T): T {
+  // @ts-ignore
+  const copy = node.constructor.clone(node);
+  $setNodeKey(copy, null);
+  return copy;
+}
+
+export function $applyNodeReplacement<N extends LexicalNode>(
+  node: LexicalNode,
+): N {
+  const editor = getActiveEditor();
+  const nodeType = (node.constructor as Klass<LexicalNode>).getType();
+  const registeredNode = editor._nodes.get(nodeType);
+  if (registeredNode === undefined) {
+    invariant(
+      false,
+      '$initializeNode failed. Ensure node has been registered to the editor. You can do this by passing the node class via the "nodes" array in the editor config.',
+    );
+  }
+  const replaceFunc = registeredNode.replace;
+  if (replaceFunc !== null) {
+    const replacementNode = replaceFunc(node) as N;
+    if (!(replacementNode instanceof node.constructor)) {
+      invariant(
+        false,
+        '$initializeNode failed. Ensure replacement node is a subclass of the original node.',
+      );
+    }
+    return replacementNode;
+  }
+  return node as N;
+}
+
+export function errorOnInsertTextNodeOnRoot(
+  node: LexicalNode,
+  insertNode: LexicalNode,
+): void {
+  const parentNode = node.getParent();
+  if (
+    $isRootNode(parentNode) &&
+    !$isElementNode(insertNode) &&
+    !$isDecoratorNode(insertNode)
+  ) {
+    invariant(
+      false,
+      'Only element or decorator nodes can be inserted in to the root node',
+    );
+  }
+}
+
+export function $getNodeByKeyOrThrow<N extends LexicalNode>(key: NodeKey): N {
+  const node = $getNodeByKey<N>(key);
+  if (node === null) {
+    invariant(
+      false,
+      "Expected node with key %s to exist but it's not in the nodeMap.",
+      key,
+    );
+  }
+  return node;
 }

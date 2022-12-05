@@ -52,8 +52,6 @@ module.exports = {
           '<rootDir>/packages/lexical-react/src/LexicalAutoEmbedPlugin.tsx',
         '^@lexical/react/LexicalAutoLinkPlugin$':
           '<rootDir>/packages/lexical-react/src/LexicalAutoLinkPlugin.ts',
-        '^@lexical/react/LexicalAutoScrollPlugin$':
-          '<rootDir>/packages/lexical-react/src/LexicalAutoScrollPlugin.ts',
         '^@lexical/react/LexicalCheckListPlugin$':
           '<rootDir>/packages/lexical-react/src/LexicalCheckListPlugin.ts',
         '^@lexical/react/LexicalCollaborationContext$':
@@ -88,6 +86,8 @@ module.exports = {
         '^@lexical/yjs$': '<rootDir>/packages/lexical-yjs/src/index.ts',
         '^lexical$': '<rootDir>/packages/lexical/src/index.ts',
         '^shared/canUseDOM$': '<rootDir>/packages/shared/src/canUseDOM.ts',
+        '^shared/caretFromPoint$':
+          '<rootDir>/packages/shared/src/caretFromPoint.ts',
         '^shared/environment$': '<rootDir>/packages/shared/src/environment.ts',
         '^shared/getDOMSelection$':
           '<rootDir>/packages/shared/src/getDOMSelection.ts',

@@ -12,7 +12,7 @@ import type {LexicalNode, NodeKey} from './LexicalNode';
 import type {ElementNode} from './nodes/LexicalElementNode';
 import type {TextFormatType} from './nodes/LexicalTextNode';
 
-import {IS_IOS, IS_SAFARI} from 'shared/environment';
+import {IS_CHROME} from 'shared/environment';
 import getDOMSelection from 'shared/getDOMSelection';
 import invariant from 'shared/invariant';
 
@@ -50,8 +50,10 @@ import {
 import {
   $getCompositionKey,
   $getDecoratorNode,
+  $getNearestRootOrShadowRoot,
   $getNodeByKey,
   $getRoot,
+  $hasAncestor,
   $isRootOrShadowRoot,
   $isTokenOrSegmented,
   $setCompositionKey,
@@ -60,6 +62,7 @@ import {
   getElementByKeyOrThrow,
   getNodeFromDOM,
   getTextNodeOffset,
+  isSelectionCapturedInDecoratorInput,
   isSelectionWithinEditor,
   scrollIntoViewIfNeeded,
   toggleTextFormatType,
@@ -69,7 +72,6 @@ export type TextPointType = {
   _selection: RangeSelection | GridSelection;
   getNode: () => TextNode;
   is: (point: PointType) => boolean;
-  isAtNodeEnd: () => boolean;
   isBefore: (point: PointType) => boolean;
   key: NodeKey;
   offset: number;
@@ -81,7 +83,6 @@ export type ElementPointType = {
   _selection: RangeSelection | GridSelection;
   getNode: () => ElementNode;
   is: (point: PointType) => boolean;
-  isAtNodeEnd: () => boolean;
   isBefore: (point: PointType) => boolean;
   key: NodeKey;
   offset: number;
@@ -103,6 +104,7 @@ export class Point {
     this.offset = offset;
     this.type = type;
   }
+
   is(point: PointType): boolean {
     return (
       this.key === point.key &&
@@ -110,6 +112,7 @@ export class Point {
       this.type === point.type
     );
   }
+
   isBefore(b: PointType): boolean {
     let aNode = this.getNode();
     let bNode = b.getNode();
@@ -129,6 +132,7 @@ export class Point {
     }
     return aNode.isBefore(bNode);
   }
+
   getNode(): LexicalNode {
     const key = this.key;
     const node = $getNodeByKey(key);
@@ -137,6 +141,7 @@ export class Point {
     }
     return node;
   }
+
   set(key: NodeKey, offset: number, type: 'text' | 'element'): void {
     const selection = this._selection;
     const oldKey = this.key;
@@ -179,6 +184,7 @@ function selectPointOnNode(point: PointType, node: LexicalNode): void {
     if ($isTextNode(nextSibling)) {
       key = nextSibling.__key;
       offset = 0;
+      type = 'text';
     } else {
       const parentNode = node.getParent();
       if (parentNode) {
@@ -601,10 +607,7 @@ export class RangeSelection implements BaseSelection {
     let nodes: Array<LexicalNode>;
 
     if (firstNode.is(lastNode)) {
-      if (
-        $isElementNode(firstNode) &&
-        (firstNode.getChildrenSize() > 0 || firstNode.excludeFromCopy())
-      ) {
+      if ($isElementNode(firstNode) && firstNode.getChildrenSize() > 0) {
         nodes = [];
       } else {
         nodes = [firstNode];
@@ -1291,7 +1294,11 @@ export class RangeSelection implements BaseSelection {
     // Time to insert the nodes!
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
-      if ($isElementNode(node) && !node.isInline()) {
+      if (
+        !$isDecoratorNode(target) &&
+        $isElementNode(node) &&
+        !node.isInline()
+      ) {
         // -----
         // Heuristics for the replacement or merging of elements
         // -----
@@ -1350,8 +1357,15 @@ export class RangeSelection implements BaseSelection {
             const children = element.getChildren();
             const childrenLength = children.length;
             if ($isElementNode(target)) {
+              let firstChild = target.getFirstChild();
               for (let s = 0; s < childrenLength; s++) {
-                target.append(children[s]);
+                const child = children[s];
+                if (firstChild === null) {
+                  target.append(child);
+                } else {
+                  firstChild.insertAfter(child);
+                }
+                firstChild = child;
               }
             } else {
               for (let s = childrenLength - 1; s >= 0; s--) {
@@ -1461,7 +1475,11 @@ export class RangeSelection implements BaseSelection {
         if (lastChild === null) {
           target.select();
         } else if ($isTextNode(lastChild)) {
-          lastChild.select();
+          if (lastChild.getTextContent() === '') {
+            lastChild.selectPrevious();
+          } else {
+            lastChild.select();
+          }
         } else {
           lastChild.selectNext();
         }
@@ -1474,7 +1492,11 @@ export class RangeSelection implements BaseSelection {
           if (
             $isElementNode(target) &&
             !$isBlockElementNode(sibling) &&
-            !($isDecoratorNode(sibling) && !sibling.isInline())
+            !(
+              $isDecoratorNode(sibling) &&
+              // Note: We are only looking for decorators that are inline and not isolated.
+              (!sibling.isInline() || sibling.isIsolated())
+            )
           ) {
             if (originalTarget === target) {
               target.append(sibling);
@@ -1716,7 +1738,7 @@ export class RangeSelection implements BaseSelection {
     if ($isDecoratorNode(possibleNode) && !possibleNode.isIsolated()) {
       // Make it possible to move selection from range selection to
       // node selection on the node.
-      if (collapse) {
+      if (collapse && possibleNode.isKeyboardSelectable()) {
         const nodeSelection = $createNodeSelection();
         nodeSelection.add(possibleNode.__key);
         $setSelection(nodeSelection);
@@ -1768,7 +1790,7 @@ export class RangeSelection implements BaseSelection {
     // from getTargetRanges(), and is also better than trying to do it ourselves
     // using Intl.Segmenter or other workarounds that struggle with word segments
     // and line segments (especially with word wrapping and non-Roman languages).
-    $moveNativeSelection(
+    moveNativeSelection(
       domSelection,
       alter,
       isBackward ? 'backward' : 'forward',
@@ -1778,17 +1800,54 @@ export class RangeSelection implements BaseSelection {
     if (domSelection.rangeCount > 0) {
       const range = domSelection.getRangeAt(0);
       // Apply the DOM selection to our Lexical selection.
+      const anchorNode = this.anchor.getNode();
+      const root = $isRootNode(anchorNode)
+        ? anchorNode
+        : $getNearestRootOrShadowRoot(anchorNode);
       this.applyDOMRange(range);
       this.dirty = true;
-      // Because a range works on start and end, we might need to flip
-      // the anchor and focus points to match what the DOM has, not what
-      // the range has specifically.
-      if (
-        !collapse &&
-        (domSelection.anchorNode !== range.startContainer ||
-          domSelection.anchorOffset !== range.startOffset)
-      ) {
-        $swapPoints(this);
+      if (!collapse) {
+        // Validate selection; make sure that the new extended selection respects shadow roots
+        const nodes = this.getNodes();
+        const validNodes = [];
+        let shrinkSelection = false;
+        for (let i = 0; i < nodes.length; i++) {
+          const nextNode = nodes[i];
+          if ($hasAncestor(nextNode, root)) {
+            validNodes.push(nextNode);
+          } else {
+            shrinkSelection = true;
+          }
+        }
+        if (shrinkSelection && validNodes.length > 0) {
+          // validNodes length check is a safeguard against an invalid selection; as getNodes()
+          // will return an empty array in this case
+          if (isBackward) {
+            const firstValidNode = validNodes[0];
+            if ($isElementNode(firstValidNode)) {
+              firstValidNode.selectStart();
+            } else {
+              firstValidNode.getParentOrThrow().selectStart();
+            }
+          } else {
+            const lastValidNode = validNodes[validNodes.length - 1];
+            if ($isElementNode(lastValidNode)) {
+              lastValidNode.selectEnd();
+            } else {
+              lastValidNode.getParentOrThrow().selectEnd();
+            }
+          }
+        }
+
+        // Because a range works on start and end, we might need to flip
+        // the anchor and focus points to match what the DOM has, not what
+        // the range has specifically.
+        if (
+          domSelection.anchorNode !== range.startContainer ||
+          domSelection.anchorOffset !== range.startOffset
+        ) {
+          $swapPoints(this);
+        }
       }
     }
   }
@@ -1814,6 +1873,25 @@ export class RangeSelection implements BaseSelection {
         if ($isElementNode(nextSibling) && !nextSibling.canExtractContents()) {
           return;
         }
+      }
+      // Handle the deletion around decorators.
+      const possibleNode = $getDecoratorNode(focus, isBackward);
+      if ($isDecoratorNode(possibleNode) && !possibleNode.isIsolated()) {
+        // Make it possible to move selection from range selection to
+        // node selection on the node.
+        if (
+          possibleNode.isKeyboardSelectable() &&
+          $isElementNode(anchorNode) &&
+          anchorNode.getChildrenSize() === 0
+        ) {
+          anchorNode.remove();
+          const nodeSelection = $createNodeSelection();
+          nodeSelection.add(possibleNode.__key);
+          $setSelection(nodeSelection);
+        } else {
+          possibleNode.remove();
+        }
+        return;
       }
       this.modify('extend', isBackward, 'character');
 
@@ -1928,7 +2006,7 @@ function $swapPoints(selection: RangeSelection): void {
   selection._cachedNodes = null;
 }
 
-function $moveNativeSelection(
+function moveNativeSelection(
   domSelection: Selection,
   alter: 'move' | 'extend',
   direction: 'backward' | 'forward' | 'left' | 'right',
@@ -2373,6 +2451,7 @@ export function internalCreateRangeSelection(
       (eventType === 'click' &&
         windowEvent &&
         (windowEvent as InputEvent).detail === 3) ||
+      eventType === 'drop' ||
       eventType === undefined);
   let anchorDOM, focusDOM, anchorOffset, focusOffset;
 
@@ -2631,6 +2710,7 @@ export function updateDOMSelection(
   domSelection: Selection,
   tags: Set<string>,
   rootElement: HTMLElement,
+  dirtyLeavesCount: number,
 ): void {
   const anchorDOMNode = domSelection.anchorNode;
   const focusDOMNode = domSelection.focusNode;
@@ -2640,7 +2720,11 @@ export function updateDOMSelection(
 
   // TODO: make this not hard-coded, and add another config option
   // that makes this configurable.
-  if (tags.has('collaboration') && activeElement !== rootElement) {
+  if (
+    (tags.has('collaboration') && activeElement !== rootElement) ||
+    (activeElement !== null &&
+      isSelectionCapturedInDecoratorInput(activeElement))
+  ) {
     return;
   }
 
@@ -2714,47 +2798,71 @@ export function updateDOMSelection(
     !(domSelection.type === 'Range' && isCollapsed)
   ) {
     // If the root element does not have focus, ensure it has focus
-    if (
-      rootElement !== null &&
-      (activeElement === null || !rootElement.contains(activeElement))
-    ) {
+    if (activeElement === null || !rootElement.contains(activeElement)) {
       rootElement.focus({
         preventScroll: true,
       });
     }
-
-    // In Safari/iOS if we have selection on an element, then we also
-    // need to additionally set the DOM selection, otherwise a selectionchange
-    // event will not fire.
-    if (!(IS_IOS || IS_SAFARI) || anchor.type !== 'element') {
+    if (anchor.type !== 'element') {
       return;
     }
   }
 
-  // Apply the updated selection to the DOM. Note: this will trigger
-  // a "selectionchange" event, although it will be asynchronous.
-  try {
-    domSelection.setBaseAndExtent(
-      nextAnchorNode,
-      nextAnchorOffset,
-      nextFocusNode,
-      nextFocusOffset,
-    );
-
-    if (
-      nextSelection.isCollapsed() &&
-      rootElement !== null &&
-      rootElement === activeElement
-    ) {
-      scrollIntoViewIfNeeded(editor, anchor, rootElement, tags);
+  if (!tags.has('skip-scroll-into-view'))
+    // Apply the updated selection to the DOM. Note: this will trigger
+    // a "selectionchange" event, although it will be asynchronous.
+    try {
+      // When updating more than 1000 nodes on Chrome, it's actually better to defer
+      // updating the selection till the next frame. This is because Chrome's
+      // Blink engine has hard limit on how many DOM nodes it can redraw in
+      // a single cycle, so keeping it to the next frame improves performance.
+      // The downside is that is makes the computation within Lexical more
+      // complex, as now, we've sync update the DOM, but selection no longer
+      // matches.
+      if (IS_CHROME && dirtyLeavesCount > 1000) {
+        window.requestAnimationFrame(() =>
+          domSelection.setBaseAndExtent(
+            nextAnchorNode as Node,
+            nextAnchorOffset,
+            nextFocusNode as Node,
+            nextFocusOffset,
+          ),
+        );
+      } else {
+        domSelection.setBaseAndExtent(
+          nextAnchorNode,
+          nextAnchorOffset,
+          nextFocusNode,
+          nextFocusOffset,
+        );
+      }
+    } catch (error) {
+      // If we encounter an error, continue. This can sometimes
+      // occur with FF and there's no good reason as to why it
+      // should happen.
     }
-
-    markSelectionChangeFromDOMUpdate();
-  } catch (error) {
-    // If we encounter an error, continue. This can sometimes
-    // occur with FF and there's no good reason as to why it
-    // should happen.
+  if (
+    !tags.has('skip-scroll-into-view') &&
+    nextSelection.isCollapsed() &&
+    rootElement !== null &&
+    rootElement === document.activeElement
+  ) {
+    const selectionTarget: null | Range | HTMLElement | Text =
+      nextSelection instanceof RangeSelection &&
+      nextSelection.anchor.type === 'element'
+        ? (nextAnchorNode.childNodes[nextAnchorOffset] as HTMLElement | Text) ||
+          null
+        : domSelection.rangeCount > 0
+        ? domSelection.getRangeAt(0)
+        : null;
+    if (selectionTarget !== null) {
+      // @ts-ignore Text nodes do have getBoundingClientRect
+      const selectionRect = selectionTarget.getBoundingClientRect();
+      scrollIntoViewIfNeeded(editor, selectionRect, rootElement);
+    }
   }
+
+  markSelectionChangeFromDOMUpdate();
 }
 
 export function $insertNodes(

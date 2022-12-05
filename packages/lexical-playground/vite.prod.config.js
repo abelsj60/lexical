@@ -124,6 +124,7 @@ const moduleResolution = [
   'LexicalMarkdownShortcutPlugin',
   'LexicalCharacterLimitPlugin',
   'LexicalHashtagPlugin',
+  'LexicalErrorBoundary',
   'LexicalPlainTextPlugin',
   'LexicalRichTextPlugin',
   'LexicalClearEditorPlugin',
@@ -140,7 +141,7 @@ const moduleResolution = [
   'LexicalAutoLinkPlugin',
   'LexicalAutoEmbedPlugin',
   'LexicalOnChangePlugin',
-  'LexicalAutoScrollPlugin',
+  'LexicalNodeEventPlugin',
 ].forEach((module) => {
   let resolvedPath = path.resolve(`../lexical-react/dist/${module}.js`);
   moduleResolution.push({

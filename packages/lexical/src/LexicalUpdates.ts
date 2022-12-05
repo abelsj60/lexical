@@ -510,6 +510,7 @@ export function commitPendingUpdates(editor: LexicalEditor): void {
   const normalizedNodes = editor._normalizedNodes;
   const tags = editor._updateTags;
   const deferred = editor._deferred;
+  const dirtyLeavesCount = dirtyLeaves.size;
 
   if (needsUpdate) {
     editor._dirtyType = NO_DIRTY_NODES;
@@ -545,6 +546,7 @@ export function commitPendingUpdates(editor: LexicalEditor): void {
         domSelection,
         tags,
         rootElement as HTMLElement,
+        dirtyLeavesCount,
       );
     } finally {
       activeEditor = previousActiveEditor;
@@ -791,8 +793,9 @@ function beginUpdate(
   let editorStateWasCloned = false;
 
   if (pendingEditorState === null || pendingEditorState._readOnly) {
-    pendingEditorState = editor._pendingEditorState =
-      cloneEditorState(currentEditorState);
+    pendingEditorState = editor._pendingEditorState = cloneEditorState(
+      pendingEditorState || currentEditorState,
+    );
     editorStateWasCloned = true;
   }
   pendingEditorState._flushSync = discrete;
@@ -807,8 +810,14 @@ function beginUpdate(
   activeEditor = editor;
 
   try {
-    if (editorStateWasCloned && !editor._headless) {
-      pendingEditorState._selection = internalCreateSelection(editor);
+    if (editorStateWasCloned) {
+      if (editor._headless) {
+        if (currentEditorState._selection != null) {
+          pendingEditorState._selection = currentEditorState._selection.clone();
+        }
+      } else {
+        pendingEditorState._selection = internalCreateSelection(editor);
+      }
     }
 
     const startingCompositionKey = editor._compositionKey;

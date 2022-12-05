@@ -7,7 +7,7 @@
  */
 
 import type {EditorState, SerializedEditorState} from './LexicalEditorState';
-import type {DOMConversion, LexicalNode, NodeKey} from './LexicalNode';
+import type {DOMConversion, NodeKey} from './LexicalNode';
 
 import getDOMSelection from 'shared/getDOMSelection';
 import invariant from 'shared/invariant';
@@ -17,6 +17,7 @@ import {FULL_RECONCILE, NO_DIRTY_NODES} from './LexicalConstants';
 import {createEmptyEditorState} from './LexicalEditorState';
 import {addRootElementEvents, removeRootElementEvents} from './LexicalEvents';
 import {flushRootMutations, initMutationObserver} from './LexicalMutations';
+import {LexicalNode} from './LexicalNode';
 import {
   commitPendingUpdates,
   internalGetActiveEditor,
@@ -27,6 +28,7 @@ import {
 import {
   createUID,
   dispatchCommand,
+  getCachedClassNameArray,
   getDefaultView,
   markAllNodesAsDirty,
 } from './LexicalUtils';
@@ -141,6 +143,7 @@ export type RegisteredNodes = Map<string, RegisteredNode>;
 export type RegisteredNode = {
   klass: Klass<LexicalNode>;
   transforms: Set<Transform<LexicalNode>>;
+  replace: null | ((node: LexicalNode) => LexicalNode);
 };
 
 export type Transform<T extends LexicalNode> = (node: T) => void;
@@ -332,7 +335,16 @@ export function createEditor(editorConfig?: {
   disableEvents?: boolean;
   editorState?: EditorState;
   namespace?: string;
-  nodes?: ReadonlyArray<Klass<LexicalNode>>;
+  nodes?: ReadonlyArray<
+    | Klass<LexicalNode>
+    | {
+        replace: Klass<LexicalNode>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        with: <T extends {new (...args: any): any}>(
+          node: InstanceType<T>,
+        ) => LexicalNode;
+      }
+  >;
   onError?: ErrorHandler;
   parentEditor?: LexicalEditor;
   editable?: boolean;
@@ -365,7 +377,14 @@ export function createEditor(editorConfig?: {
   } else {
     registeredNodes = new Map();
     for (let i = 0; i < nodes.length; i++) {
-      const klass = nodes[i];
+      let klass = nodes[i];
+      let replacementClass = null;
+
+      if (typeof klass !== 'function') {
+        const options = klass;
+        klass = options.replace;
+        replacementClass = options.with;
+      }
       // Ensure custom nodes implement required methods.
       if (__DEV__) {
         const name = klass.name;
@@ -416,6 +435,7 @@ export function createEditor(editorConfig?: {
       const type = klass.getType();
       registeredNodes.set(type, {
         klass,
+        replace: replacementClass,
         transforms: new Set(),
       });
     }
@@ -530,7 +550,7 @@ export class LexicalEditor {
     // We don't actually make use of the `editable` argument above.
     // Doing so, causes e2e tests around the lock to fail.
     this._editable = true;
-    this._headless = false;
+    this._headless = parentEditor !== null && parentEditor._headless;
     this._window = null;
   }
 
@@ -707,6 +727,7 @@ export class LexicalEditor {
     const prevRootElement = this._rootElement;
 
     if (nextRootElement !== prevRootElement) {
+      const classNames = getCachedClassNameArray(this._config.theme, 'root');
       const pendingEditorState = this._pendingEditorState || this._editorState;
       this._rootElement = nextRootElement;
       resetEditor(this, prevRootElement, nextRootElement, pendingEditorState);
@@ -715,6 +736,9 @@ export class LexicalEditor {
         // TODO: remove this flag once we no longer use UEv2 internally
         if (!this._config.disableEvents) {
           removeRootElementEvents(prevRootElement);
+        }
+        if (classNames != null) {
+          prevRootElement.classList.remove(...classNames);
         }
       }
 
@@ -736,6 +760,9 @@ export class LexicalEditor {
         // TODO: remove this flag once we no longer use UEv2 internally
         if (!this._config.disableEvents) {
           addRootElementEvents(nextRootElement, this);
+        }
+        if (classNames != null) {
+          nextRootElement.classList.add(...classNames);
         }
       } else {
         this._window = null;

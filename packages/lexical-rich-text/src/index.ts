@@ -13,10 +13,13 @@ import type {
   DOMConversionOutput,
   EditorConfig,
   ElementFormatType,
+  LexicalCommand,
   LexicalEditor,
   LexicalNode,
   NodeKey,
   ParagraphNode,
+  PasteCommandType,
+  RangeSelection,
   SerializedElementNode,
   Spread,
   TextFormatType,
@@ -36,7 +39,9 @@ import {
   mergeRegister,
 } from '@lexical/utils';
 import {
+  $applyNodeReplacement,
   $createParagraphNode,
+  $createRangeSelection,
   $getNearestNodeFromDOMNode,
   $getSelection,
   $isDecoratorNode,
@@ -44,15 +49,19 @@ import {
   $isRangeSelection,
   $isRootNode,
   $isTextNode,
+  $normalizeSelection__EXPERIMENTAL,
+  $setSelection,
   CLICK_COMMAND,
   COMMAND_PRIORITY_EDITOR,
   CONTROLLED_TEXT_INSERTION_COMMAND,
   COPY_COMMAND,
+  createCommand,
   CUT_COMMAND,
   DELETE_CHARACTER_COMMAND,
   DELETE_LINE_COMMAND,
   DELETE_WORD_COMMAND,
   DEPRECATED_$isGridSelection,
+  DRAGOVER_COMMAND,
   DRAGSTART_COMMAND,
   DROP_COMMAND,
   ElementNode,
@@ -74,6 +83,7 @@ import {
   PASTE_COMMAND,
   REMOVE_TEXT_COMMAND,
 } from 'lexical';
+import caretFromPoint from 'shared/caretFromPoint';
 import {CAN_USE_BEFORE_INPUT, IS_IOS, IS_SAFARI} from 'shared/environment';
 
 export type SerializedHeadingNode = Spread<
@@ -84,6 +94,10 @@ export type SerializedHeadingNode = Spread<
   },
   SerializedElementNode
 >;
+
+export const DRAG_DROP_PASTE: LexicalCommand<Array<File>> = createCommand(
+  'DRAG_DROP_PASTE_FILE',
+);
 
 export type SerializedQuoteNode = Spread<
   {
@@ -162,7 +176,7 @@ export class QuoteNode extends ElementNode {
 }
 
 export function $createQuoteNode(): QuoteNode {
-  return new QuoteNode();
+  return $applyNodeReplacement(new QuoteNode());
 }
 
 export function $isQuoteNode(
@@ -266,7 +280,6 @@ export class HeadingNode extends ElementNode {
       },
     };
   }
-
   static importJSON(serializedNode: SerializedHeadingNode): HeadingNode {
     const node = $createHeadingNode(serializedNode.tag);
     node.setFormat(serializedNode.format);
@@ -285,9 +298,12 @@ export class HeadingNode extends ElementNode {
   }
 
   // Mutation
-
-  insertNewAfter(): ParagraphNode {
-    const newElement = $createParagraphNode();
+  insertNewAfter(selection?: RangeSelection): ParagraphNode | HeadingNode {
+    const anchorOffet = selection ? selection.anchor.offset : 0;
+    const newElement =
+      anchorOffet > 0 && anchorOffet < this.getTextContentSize()
+        ? $createHeadingNode(this.getTag())
+        : $createParagraphNode();
     const direction = this.getDirection();
     newElement.setDirection(direction);
     this.insertAfter(newElement);
@@ -295,10 +311,12 @@ export class HeadingNode extends ElementNode {
   }
 
   collapseAtStart(): true {
-    const paragraph = $createParagraphNode();
+    const newElement = !this.isEmpty()
+      ? $createHeadingNode(this.getTag())
+      : $createParagraphNode();
     const children = this.getChildren();
-    children.forEach((child) => paragraph.append(child));
-    this.replace(paragraph);
+    children.forEach((child) => newElement.append(child));
+    this.replace(newElement);
     return true;
   }
 
@@ -336,7 +354,7 @@ function convertBlockquoteElement(): DOMConversionOutput {
 }
 
 export function $createHeadingNode(headingTag: HeadingTagType): HeadingNode {
-  return new HeadingNode(headingTag);
+  return $applyNodeReplacement(new HeadingNode(headingTag));
 }
 
 export function $isHeadingNode(
@@ -374,21 +392,42 @@ async function onCutForRichText(
   event: CommandPayloadType<typeof CUT_COMMAND>,
   editor: LexicalEditor,
 ): Promise<void> {
-  const selection = editor.getEditorState().read(() => $getSelection());
-  if (selection == null) {
-    return;
-  }
   await copyToClipboard__EXPERIMENTAL(
     editor,
     event instanceof ClipboardEvent ? event : null,
   );
   editor.update(() => {
+    const selection = $getSelection();
     if ($isRangeSelection(selection)) {
       selection.removeText();
     } else if ($isNodeSelection(selection)) {
       selection.getNodes().forEach((node) => node.remove());
     }
   });
+}
+
+// Clipboard may contain files that we aren't allowed to read. While the event is arguably useless,
+// in certain ocassions, we want to know whether it was a file transfer, as opposed to text. We
+// control this with the first boolean flag.
+export function eventFiles(
+  event: DragEvent | PasteCommandType,
+): [boolean, Array<File>, boolean] {
+  let dataTransfer: null | DataTransfer = null;
+  if (event instanceof DragEvent) {
+    dataTransfer = event.dataTransfer;
+  } else if (event instanceof ClipboardEvent) {
+    dataTransfer = event.clipboardData;
+  }
+
+  if (dataTransfer === null) {
+    return [false, [], false];
+  }
+
+  const types = dataTransfer.types;
+  const hasFiles = types.includes('Files');
+  const hasContent =
+    types.includes('text/html') || types.includes('text/plain');
+  return [hasFiles, Array.from(dataTransfer.files), hasContent];
 }
 
 function handleIndentAndOutdent(
@@ -408,11 +447,13 @@ function handleIndentAndOutdent(
     if (alreadyHandled.has(key)) {
       continue;
     }
-    alreadyHandled.add(key);
     const parentBlock = $getNearestBlockElementAncestorOrThrow(node);
+    const parentKey = parentBlock.getKey();
     if (parentBlock.canInsertTab()) {
       insertTab(node);
-    } else if (parentBlock.canIndent()) {
+      alreadyHandled.add(key);
+    } else if (parentBlock.canIndent() && !alreadyHandled.has(parentKey)) {
+      alreadyHandled.add(parentKey);
       indentOrOutdent(parentBlock);
     }
   }
@@ -807,23 +848,75 @@ export function registerRichText(editor: LexicalEditor): () => void {
     editor.registerCommand<DragEvent>(
       DROP_COMMAND,
       (event) => {
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection)) {
-          return false;
+        const [, files] = eventFiles(event);
+        if (files.length > 0) {
+          const x = event.clientX;
+          const y = event.clientY;
+          const eventRange = caretFromPoint(x, y);
+          if (eventRange !== null) {
+            const {offset: domOffset, node: domNode} = eventRange;
+            const node = $getNearestNodeFromDOMNode(domNode);
+            if (node !== null) {
+              const selection = $createRangeSelection();
+              if ($isTextNode(node)) {
+                selection.anchor.set(node.getKey(), domOffset, 'text');
+                selection.focus.set(node.getKey(), domOffset, 'text');
+              } else {
+                const parentKey = node.getParentOrThrow().getKey();
+                const offset = node.getIndexWithinParent() + 1;
+                selection.anchor.set(parentKey, offset, 'element');
+                selection.focus.set(parentKey, offset, 'element');
+              }
+              const normalizedSelection =
+                $normalizeSelection__EXPERIMENTAL(selection);
+              $setSelection(normalizedSelection);
+            }
+            editor.dispatchCommand(DRAG_DROP_PASTE, files);
+          }
+          event.preventDefault();
+          return true;
         }
-        event.preventDefault();
-        return true;
+
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          return true;
+        }
+
+        return false;
       },
       COMMAND_PRIORITY_EDITOR,
     ),
     editor.registerCommand<DragEvent>(
       DRAGSTART_COMMAND,
       (event) => {
+        const [isFileTransfer] = eventFiles(event);
         const selection = $getSelection();
-        if (!$isRangeSelection(selection)) {
+        if (isFileTransfer && !$isRangeSelection(selection)) {
           return false;
         }
-        event.preventDefault();
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR,
+    ),
+    editor.registerCommand<DragEvent>(
+      DRAGOVER_COMMAND,
+      (event) => {
+        const [isFileTransfer] = eventFiles(event);
+        const selection = $getSelection();
+        if (isFileTransfer && !$isRangeSelection(selection)) {
+          return false;
+        }
+        const x = event.clientX;
+        const y = event.clientY;
+        const eventRange = caretFromPoint(x, y);
+        if (eventRange !== null) {
+          const node = $getNearestNodeFromDOMNode(eventRange.node);
+          if ($isDecoratorNode(node)) {
+            // Show browser caret as the user is dragging the media across the screen. Won't work
+            // for DecoratorNode nor it's relevant.
+            event.preventDefault();
+          }
+        }
         return true;
       },
       COMMAND_PRIORITY_EDITOR,
@@ -850,6 +943,12 @@ export function registerRichText(editor: LexicalEditor): () => void {
     editor.registerCommand(
       PASTE_COMMAND,
       (event) => {
+        const [, files, hasTextContent] = eventFiles(event);
+        if (files.length > 0 && !hasTextContent) {
+          editor.dispatchCommand(DRAG_DROP_PASTE, files);
+          return true;
+        }
+
         const selection = $getSelection();
         if (
           $isRangeSelection(selection) ||
@@ -858,6 +957,7 @@ export function registerRichText(editor: LexicalEditor): () => void {
           onPasteForRichText(event, editor);
           return true;
         }
+
         return false;
       },
       COMMAND_PRIORITY_EDITOR,
