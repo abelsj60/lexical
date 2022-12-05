@@ -5,11 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-
 // eslint-disable-next-line simple-import-sort/imports
-import type {Klass, LexicalNode} from 'lexical';
-
-// import {CodeHighlightNode, CodeNode} from '@lexical/code';
+// import { HashtagNode } from '@lexical/code';
 import {HashtagNode} from '@lexical/hashtag';
 import {AutoLinkNode, LinkNode} from '@lexical/link';
 import {ListItemNode, ListNode} from '@lexical/list';
@@ -18,7 +15,11 @@ import {OverflowNode} from '@lexical/overflow';
 import {HorizontalRuleNode} from '@lexical/react/LexicalHorizontalRuleNode';
 import {HeadingNode, QuoteNode} from '@lexical/rich-text';
 import {TableCellNode, TableNode, TableRowNode} from '@lexical/table';
+import {Klass, LexicalNode, ParagraphNode} from 'lexical';
 
+import {CodeHighlightNodeN} from '../../../lexical-code/src/chnNext';
+import {CodeLineNodeN} from '../../../lexical-code/src/clnNext';
+import {CodeNodeN} from '../../../lexical-code/src/cnNext';
 import {CollapsibleContainerNode} from '../plugins/CollapsiblePlugin/CollapsibleContainerNode';
 import {CollapsibleContentNode} from '../plugins/CollapsiblePlugin/CollapsibleContentNode';
 import {CollapsibleTitleNode} from '../plugins/CollapsiblePlugin/CollapsibleTitleNode';
@@ -35,9 +36,6 @@ import {StickyNode} from './StickyNode';
 import {TableNode as NewTableNode} from './TableNode';
 import {TweetNode} from './TweetNode';
 import {YouTubeNode} from './YouTubeNode';
-import {CodeNodeN} from '../../../lexical-code/src/cnNext';
-import {CodeLineNodeN} from '../../../lexical-code/src/clnNext';
-import {CodeHighlightNodeN} from '../../../lexical-code/src/chnNext';
 
 const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   HeadingNode,
@@ -75,6 +73,27 @@ const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   CodeNodeN,
   CodeLineNodeN,
   CodeHighlightNodeN,
+  {
+    replace: ParagraphNode,
+    with: (node) => {
+      return new ParagraphNode();
+    },
+  },
+  // {
+  //   replace: ParagraphNode,
+  //   // @ts-ignore
+  //   with: (node) => {
+  //     const selection = $getSelection();
+
+  //     if (selection !== null) {
+  //       if ($isCodeNodeN(selection.anchor.getNode())) {
+  //         return new CodeLineNodeN();
+  //       }
+  //     }
+
+  //     return new ParagraphNode();
+  //   },
+  // },
 ];
 
 export default PlaygroundNodes;

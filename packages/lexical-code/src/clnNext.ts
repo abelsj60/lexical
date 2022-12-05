@@ -8,7 +8,7 @@
 // eslint-disable-next-line simple-import-sort/imports
 import {
   Spread,
-  ElementNode,
+  // ElementNode,
   $getSelection,
   $isParagraphNode,
   NodeKey,
@@ -21,6 +21,8 @@ import {
   SerializedElementNode,
   NodeSelection,
   GridSelection,
+  ParagraphNode,
+  $createParagraphNode,
 } from 'lexical';
 
 import * as Prism from 'prismjs';
@@ -86,7 +88,8 @@ export const getCodeLanguages = (): Array<string> =>
     )
     .sort();
 
-export class CodeLineNodeN extends ElementNode {
+export class CodeLineNodeN extends ParagraphNode {
+  // export class CodeLineNodeN extends ElementNode {
   constructor(key?: NodeKey) {
     super(key);
   }
@@ -436,7 +439,7 @@ export class CodeLineNodeN extends ElementNode {
     return false;
   }
 
-  insertNewAfter() {
+  insertNewAfter(): ParagraphNode {
     const self = this.getLatest();
     const codeNode = self.getParent();
 
@@ -518,7 +521,7 @@ export class CodeLineNodeN extends ElementNode {
       }
     }
 
-    return null;
+    return $createParagraphNode();
   }
 
   createDOM(config: EditorConfig) {
@@ -526,13 +529,20 @@ export class CodeLineNodeN extends ElementNode {
     return dom;
   }
 
-  updateDOM(
-    prevNode: CodeHighlightNodeN,
-    dom: HTMLElement,
-    config: EditorConfig,
-  ) {
-    return false;
-  }
+  // updateDOM(
+  //   prevNode: ParagraphNode,
+  //   dom: HTMLElement,
+  // ): boolean {
+  //   return false;
+  // }
+
+  // updateDOM(
+  //   prevNode: CodeHighlightNodeN,
+  //   dom: HTMLElement,
+  //   config: EditorConfig,
+  // ) {
+  //   return false;
+  // }
 
   // static importDOM() {
   //   return {};
@@ -559,10 +569,16 @@ export function $createCodeLineNode() {
 }
 
 export function $isCodeLineNodeN(
-  node: LexicalNode | CodeLineNodeN | null | undefined,
+  node: LexicalNode | null | undefined,
 ): node is CodeLineNodeN {
   return node instanceof CodeLineNodeN;
 }
+
+// export function $isCodeLineNodeN(
+//   node: LexicalNode | CodeLineNodeN | null | undefined,
+// ): node is CodeLineNodeN {
+//   return node instanceof CodeLineNodeN;
+// }
 
 interface PlainHighlight {
   content: Prism.TokenStream;
