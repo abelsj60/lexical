@@ -51,6 +51,7 @@ import {
 } from '../LexicalSelection';
 import {errorOnReadOnly} from '../LexicalUpdates';
 import {
+  $applyNodeReplacement,
   $getCompositionKey,
   $setCompositionKey,
   getCachedClassNameArray,
@@ -459,6 +460,14 @@ export class TextNode extends LexicalNode {
         conversion: convertTextFormatElement,
         priority: 0,
       }),
+      sub: (node: Node) => ({
+        conversion: convertTextFormatElement,
+        priority: 0,
+      }),
+      sup: (node: Node) => ({
+        conversion: convertTextFormatElement,
+        priority: 0,
+      }),
       u: (node: Node) => ({
         conversion: convertTextFormatElement,
         priority: 0,
@@ -536,15 +545,21 @@ export class TextNode extends LexicalNode {
 
   setMode(type: TextModeType): this {
     const mode = TEXT_MODE_TO_TYPE[type];
+    if (this.__mode === mode) {
+      return this;
+    }
     const self = this.getWritable();
     self.__mode = mode;
     return self;
   }
 
   setTextContent(text: string): this {
-    const writableSelf = this.getWritable();
-    writableSelf.__text = text;
-    return writableSelf;
+    if (this.__text === text) {
+      return this;
+    }
+    const self = this.getWritable();
+    self.__text = text;
+    return self;
   }
 
   select(_anchorOffset?: number, _focusOffset?: number): RangeSelection {
@@ -888,6 +903,8 @@ const nodeNameToTextFormat: Record<string, TextFormatType> = {
   em: 'italic',
   i: 'italic',
   strong: 'bold',
+  sub: 'subscript',
+  sup: 'superscript',
   u: 'underline',
 };
 function convertTextFormatElement(domNode: Node): DOMConversionOutput {
@@ -908,7 +925,7 @@ function convertTextFormatElement(domNode: Node): DOMConversionOutput {
 }
 
 export function $createTextNode(text = ''): TextNode {
-  return new TextNode(text);
+  return $applyNodeReplacement(new TextNode(text));
 }
 
 export function $isTextNode(

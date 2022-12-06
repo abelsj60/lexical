@@ -15,6 +15,7 @@ import type {
 import type {Spread} from 'lexical';
 
 import {LexicalNode} from '../LexicalNode';
+import {$applyNodeReplacement} from '../LexicalUtils';
 
 export type SerializedLineBreakNode = Spread<
   {
@@ -75,7 +76,7 @@ export class LineBreakNode extends LexicalNode {
     return $createLineBreakNode();
   }
 
-  exportJSON(): SerializedLexicalNode {
+  exportJSON(): SerializedLineBreakNode {
     return {
       type: 'linebreak',
       version: 1,
@@ -88,7 +89,7 @@ function convertLineBreakElement(node: Node): DOMConversionOutput {
 }
 
 export function $createLineBreakNode(): LineBreakNode {
-  return new LineBreakNode();
+  return $applyNodeReplacement(new LineBreakNode());
 }
 
 export function $isLineBreakNode(

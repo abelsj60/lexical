@@ -8,7 +8,7 @@
 
 import {$createLinkNode} from '@lexical/link';
 import {$createHeadingNode} from '@lexical/rich-text';
-import {$cloneContents} from '@lexical/selection';
+import {$cloneContents, $patchStyleText} from '@lexical/selection';
 import {
   $createParagraphNode,
   $createTextNode,
@@ -17,6 +17,7 @@ import {
   $getSelection,
   $isNodeSelection,
   $isRangeSelection,
+  RangeSelection,
   TextNode,
 } from 'lexical';
 import {
@@ -28,6 +29,25 @@ import {
 } from 'lexical/src/__tests__/utils';
 
 import {setAnchorPoint, setFocusPoint} from '../utils';
+
+Range.prototype.getBoundingClientRect = function (): DOMRect {
+  const rect = {
+    bottom: 0,
+    height: 0,
+    left: 0,
+    right: 0,
+    top: 0,
+    width: 0,
+    x: 0,
+    y: 0,
+  };
+  return {
+    ...rect,
+    toJSON() {
+      return rect;
+    },
+  };
+};
 
 function createParagraphWithNodes(editor, nodes) {
   const paragraph = $createParagraphNode();
@@ -2827,6 +2847,282 @@ describe('insertNodes', () => {
       '<p dir="ltr"><span data-lexical-text="true">Text before</span></p>' +
         '<span data-lexical-decorator="true" contenteditable="false"></span>' +
         '<p dir="ltr"><span data-lexical-text="true">Text after</span></p>',
+    );
+  });
+});
+
+describe('$patchStyleText', () => {
+  test('can patch a selection anchored to the end of a TextNode before an inline element', async () => {
+    const editor = createTestEditor();
+    const element = document.createElement('div');
+    editor.setRootElement(element);
+
+    await editor.update(() => {
+      const root = $getRoot();
+
+      const paragraph = createParagraphWithNodes(editor, [
+        {
+          key: 'a',
+          mergeable: false,
+          text: 'a',
+        },
+        {
+          key: 'b',
+          mergeable: false,
+          text: 'b',
+        },
+      ]);
+
+      root.append(paragraph);
+
+      const link = $createLinkNode('https://');
+      link.append($createTextNode('link'));
+
+      const a = $getNodeByKey('a');
+      a.insertAfter(link);
+
+      setAnchorPoint({
+        key: 'a',
+        offset: 1,
+        type: 'text',
+      });
+      setFocusPoint({
+        key: 'b',
+        offset: 1,
+        type: 'text',
+      });
+
+      const selection = $getSelection() as RangeSelection;
+      $patchStyleText(selection, {'text-emphasis': 'filled'});
+    });
+
+    expect(element.innerHTML).toBe(
+      '<p dir="ltr"><span data-lexical-text="true">a</span>' +
+        '<a href="https://" dir="ltr">' +
+        '<span style="text-emphasis: filled;" data-lexical-text="true">link</span>' +
+        '</a>' +
+        '<span style="text-emphasis: filled;" data-lexical-text="true">b</span></p>',
+    );
+  });
+
+  test('can patch a selection anchored to the end of a TextNode at the end of a paragraph', async () => {
+    const editor = createTestEditor();
+    const element = document.createElement('div');
+    editor.setRootElement(element);
+
+    await editor.update(() => {
+      const root = $getRoot();
+
+      const paragraph1 = createParagraphWithNodes(editor, [
+        {
+          key: 'a',
+          mergeable: false,
+          text: 'a',
+        },
+      ]);
+      const paragraph2 = createParagraphWithNodes(editor, [
+        {
+          key: 'b',
+          mergeable: false,
+          text: 'b',
+        },
+      ]);
+
+      root.append(paragraph1);
+      root.append(paragraph2);
+
+      setAnchorPoint({
+        key: 'a',
+        offset: 1,
+        type: 'text',
+      });
+      setFocusPoint({
+        key: 'b',
+        offset: 1,
+        type: 'text',
+      });
+
+      const selection = $getSelection() as RangeSelection;
+      $patchStyleText(selection, {'text-emphasis': 'filled'});
+    });
+
+    expect(element.innerHTML).toBe(
+      '<p dir="ltr"><span data-lexical-text="true">a</span></p>' +
+        '<p dir="ltr"><span style="text-emphasis: filled;" data-lexical-text="true">b</span></p>',
+    );
+  });
+
+  test('can patch a selection that ends on an element', async () => {
+    const editor = createTestEditor();
+    const element = document.createElement('div');
+    editor.setRootElement(element);
+
+    await editor.update(() => {
+      const root = $getRoot();
+
+      const paragraph = createParagraphWithNodes(editor, [
+        {
+          key: 'a',
+          mergeable: false,
+          text: 'a',
+        },
+      ]);
+
+      root.append(paragraph);
+
+      const link = $createLinkNode('https://');
+      link.append($createTextNode('link'));
+
+      const a = $getNodeByKey('a');
+      a.insertAfter(link);
+
+      setAnchorPoint({
+        key: 'a',
+        offset: 0,
+        type: 'text',
+      });
+      // Select to end of the link _element_
+      setFocusPoint({
+        key: link.getKey(),
+        offset: 1,
+        type: 'element',
+      });
+
+      const selection = $getSelection() as RangeSelection;
+      $patchStyleText(selection, {'text-emphasis': 'filled'});
+    });
+
+    expect(element.innerHTML).toBe(
+      '<p dir="ltr">' +
+        '<span style="text-emphasis: filled;" data-lexical-text="true">a</span>' +
+        '<a href="https://" dir="ltr">' +
+        '<span style="text-emphasis: filled;" data-lexical-text="true">link</span>' +
+        '</a>' +
+        '</p>',
+    );
+  });
+
+  test('can patch a reversed selection that ends on an element', async () => {
+    const editor = createTestEditor();
+    const element = document.createElement('div');
+    editor.setRootElement(element);
+
+    await editor.update(() => {
+      const root = $getRoot();
+
+      const paragraph = createParagraphWithNodes(editor, [
+        {
+          key: 'a',
+          mergeable: false,
+          text: 'a',
+        },
+      ]);
+
+      root.append(paragraph);
+
+      const link = $createLinkNode('https://');
+      link.append($createTextNode('link'));
+
+      const a = $getNodeByKey('a');
+      a.insertAfter(link);
+
+      // Select from the end of the link _element_
+      setAnchorPoint({
+        key: link.getKey(),
+        offset: 1,
+        type: 'element',
+      });
+      setFocusPoint({
+        key: 'a',
+        offset: 0,
+        type: 'text',
+      });
+
+      const selection = $getSelection() as RangeSelection;
+      $patchStyleText(selection, {'text-emphasis': 'filled'});
+    });
+
+    expect(element.innerHTML).toBe(
+      '<p dir="ltr">' +
+        '<span style="text-emphasis: filled;" data-lexical-text="true">a</span>' +
+        '<a href="https://" dir="ltr">' +
+        '<span style="text-emphasis: filled;" data-lexical-text="true">link</span>' +
+        '</a>' +
+        '</p>',
+    );
+  });
+
+  test('can patch a selection that starts and ends on an element', async () => {
+    const editor = createTestEditor();
+    const element = document.createElement('div');
+    editor.setRootElement(element);
+
+    await editor.update(() => {
+      const root = $getRoot();
+
+      const paragraph = $createParagraphNode();
+      root.append(paragraph);
+
+      const link = $createLinkNode('https://');
+      link.append($createTextNode('link'));
+      paragraph.append(link);
+
+      setAnchorPoint({
+        key: link.getKey(),
+        offset: 0,
+        type: 'element',
+      });
+      setFocusPoint({
+        key: link.getKey(),
+        offset: 1,
+        type: 'element',
+      });
+
+      const selection = $getSelection() as RangeSelection;
+      $patchStyleText(selection, {'text-emphasis': 'filled'});
+    });
+
+    expect(element.innerHTML).toBe(
+      '<p>' +
+        '<a href="https://" dir="ltr">' +
+        '<span style="text-emphasis: filled;" data-lexical-text="true">link</span>' +
+        '</a>' +
+        '</p>',
+    );
+  });
+
+  test('can clear a style', async () => {
+    const editor = createTestEditor();
+    const element = document.createElement('div');
+    editor.setRootElement(element);
+
+    await editor.update(() => {
+      const root = $getRoot();
+
+      const paragraph = $createParagraphNode();
+      root.append(paragraph);
+
+      const text = $createTextNode('text');
+      paragraph.append(text);
+
+      setAnchorPoint({
+        key: text.getKey(),
+        offset: 0,
+        type: 'text',
+      });
+      setFocusPoint({
+        key: text.getKey(),
+        offset: text.getTextContentSize(),
+        type: 'text',
+      });
+
+      const selection = $getSelection() as RangeSelection;
+      $patchStyleText(selection, {'text-emphasis': 'filled'});
+      $patchStyleText(selection, {'text-emphasis': null});
+    });
+
+    expect(element.innerHTML).toBe(
+      '<p dir="ltr"><span data-lexical-text="true">text</span></p>',
     );
   });
 });

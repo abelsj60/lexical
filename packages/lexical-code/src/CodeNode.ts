@@ -31,9 +31,11 @@ import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-rust';
 import 'prismjs/components/prism-swift';
+import 'prismjs/components/prism-typescript';
 
 import {addClassNamesToElement} from '@lexical/utils';
 import {
+  $applyNodeReplacement,
   $createLineBreakNode,
   $createParagraphNode,
   $getSelection,
@@ -46,7 +48,7 @@ import {
 } from './CodeHighlightNode';
 import * as Prism from 'prismjs';
 
-type SerializedCodeNode = Spread<
+export type SerializedCodeNode = Spread<
   {
     language: string | null | undefined;
     type: 'code';
@@ -291,7 +293,7 @@ export class CodeNode extends ElementNode {
 export function $createCodeNode(
   language?: string | null | undefined,
 ): CodeNode {
-  return new CodeNode(language);
+  return $applyNodeReplacement(new CodeNode(language));
 }
 
 export function $isCodeNode(
@@ -308,6 +310,11 @@ function convertDivElement(domNode: Node): DOMConversionOutput {
   // domNode is a <div> since we matched it by nodeName
   const div = domNode as HTMLDivElement;
   const isCode = isCodeElement(div);
+  if (!isCode && !isCodeChildElement(div)) {
+    return {
+      node: null,
+    };
+  }
   return {
     after: (childLexicalNodes) => {
       const domParent = domNode.parentNode;
@@ -345,8 +352,19 @@ function convertTableCellElement(domNode: Node): DOMConversionOutput {
   };
 }
 
-function isCodeElement(div: HTMLDivElement): boolean {
+function isCodeElement(div: HTMLElement): boolean {
   return div.style.fontFamily.match('monospace') !== null;
+}
+
+function isCodeChildElement(node: HTMLElement): boolean {
+  let parent = node.parentElement;
+  while (parent !== null) {
+    if (isCodeElement(parent)) {
+      return true;
+    }
+    parent = parent.parentElement;
+  }
+  return false;
 }
 
 function isGitHubCodeCell(

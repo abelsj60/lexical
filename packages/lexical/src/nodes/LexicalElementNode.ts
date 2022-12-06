@@ -48,12 +48,25 @@ export type SerializedElementNode = Spread<
   SerializedLexicalNode
 >;
 
-export type ElementFormatType = 'left' | 'center' | 'right' | 'justify' | '';
+export type ElementFormatType =
+  | 'left'
+  | 'start'
+  | 'center'
+  | 'right'
+  | 'end'
+  | 'justify'
+  | '';
 
 /** @noInheritDoc */
 export class ElementNode extends LexicalNode {
   /** @internal */
   __children: Array<NodeKey>;
+  /** @internal */
+  __first: null | NodeKey;
+  /** @internal */
+  __last: null | NodeKey;
+  /** @internal */
+  __size: number;
   /** @internal */
   __format: number;
   /** @internal */
@@ -63,7 +76,11 @@ export class ElementNode extends LexicalNode {
 
   constructor(key?: NodeKey) {
     super(key);
+    // TODO: remove children and switch to using first/last as part of linked list work
     this.__children = [];
+    this.__first = null;
+    this.__last = null;
+    this.__size = 0;
     this.__format = 0;
     this.__indent = 0;
     this.__dir = null;
@@ -382,23 +399,9 @@ export class ElementNode extends LexicalNode {
       if ($isRangeSelection(selection)) {
         const nodesToRemoveKeySet = new Set(nodesToRemoveKeys);
         const nodesToInsertKeySet = new Set(nodesToInsertKeys);
-        const isPointRemoved = (point: PointType): boolean => {
-          let node: ElementNode | TextNode | null = point.getNode();
-          while (node) {
-            const nodeKey = node.__key;
-            if (
-              nodesToRemoveKeySet.has(nodeKey) &&
-              !nodesToInsertKeySet.has(nodeKey)
-            ) {
-              return true;
-            }
-            node = node.getParent();
-          }
-          return false;
-        };
 
         const {anchor, focus} = selection;
-        if (isPointRemoved(anchor)) {
+        if (isPointRemoved(anchor, nodesToRemoveKeySet, nodesToInsertKeySet)) {
           moveSelectionPointToSibling(
             anchor,
             anchor.getNode(),
@@ -407,7 +410,7 @@ export class ElementNode extends LexicalNode {
             nodeAfterRange,
           );
         }
-        if (isPointRemoved(focus)) {
+        if (isPointRemoved(focus, nodesToRemoveKeySet, nodesToInsertKeySet)) {
           moveSelectionPointToSibling(
             focus,
             focus.getNode(),
@@ -516,4 +519,20 @@ export function $isElementNode(
   node: LexicalNode | null | undefined,
 ): node is ElementNode {
   return node instanceof ElementNode;
+}
+
+function isPointRemoved(
+  point: PointType,
+  nodesToRemoveKeySet: Set<NodeKey>,
+  nodesToInsertKeySet: Set<NodeKey>,
+): boolean {
+  let node: ElementNode | TextNode | null = point.getNode();
+  while (node) {
+    const nodeKey = node.__key;
+    if (nodesToRemoveKeySet.has(nodeKey) && !nodesToInsertKeySet.has(nodeKey)) {
+      return true;
+    }
+    node = node.getParent();
+  }
+  return false;
 }

@@ -9,6 +9,7 @@
 import type {ICloneSelectionContent} from './lexical-node';
 import type {
   ElementNode,
+  GridSelection,
   LexicalNode,
   NodeKey,
   Point,
@@ -63,7 +64,7 @@ function isPointAttached(point: Point): boolean {
  * @returns
  */
 export function $wrapNodes(
-  selection: RangeSelection,
+  selection: RangeSelection | GridSelection,
   createElement: () => ElementNode,
   wrappingElement: null | ElementNode = null,
 ): void {
@@ -140,7 +141,7 @@ export function $wrapNodes(
 }
 
 export function $wrapNodesImpl(
-  selection: RangeSelection,
+  selection: RangeSelection | GridSelection,
   nodes: LexicalNode[],
   nodesLength: number,
   createElement: () => ElementNode,
@@ -193,7 +194,7 @@ export function $wrapNodesImpl(
     }
   }
 
-  const movedLeafNodes: Set<NodeKey> = new Set();
+  const movedNodes: Set<NodeKey> = new Set();
 
   // Move out all leaf nodes into our elements array.
   // If we find a top level empty element, also move make
@@ -209,7 +210,7 @@ export function $wrapNodesImpl(
     if (
       parent !== null &&
       $isLeafNode(node) &&
-      !movedLeafNodes.has(node.getKey())
+      !movedNodes.has(node.getKey())
     ) {
       const parentKey = parent.getKey();
 
@@ -223,7 +224,11 @@ export function $wrapNodesImpl(
         // element.
         parent.getChildren().forEach((child) => {
           targetElement.append(child);
-          movedLeafNodes.add(child.getKey());
+          movedNodes.add(child.getKey());
+          if ($isElementNode(child)) {
+            // Skip nested leaf nodes if the parent has already been moved
+            child.getChildrenKeys().forEach((key) => movedNodes.add(key));
+          }
         });
         $removeParentEmptyElements(parent);
       }
@@ -242,6 +247,7 @@ export function $wrapNodesImpl(
       wrappingElement.append(element);
     }
   }
+  let lastElement = null;
 
   // If our target is Root-like, let's see if we can re-adjust
   // so that the target is the first child instead.
@@ -269,6 +275,7 @@ export function $wrapNodesImpl(
           for (let i = 0; i < elements.length; i++) {
             const element = elements[i];
             target.append(element);
+            lastElement = element;
           }
         }
       } else {
@@ -278,6 +285,7 @@ export function $wrapNodesImpl(
           for (let i = 0; i < elements.length; i++) {
             const element = elements[i];
             firstChild.insertBefore(element);
+            lastElement = element;
           }
         }
       }
@@ -289,6 +297,7 @@ export function $wrapNodesImpl(
       for (let i = elements.length - 1; i >= 0; i--) {
         const element = elements[i];
         target.insertAfter(element);
+        lastElement = element;
       }
     }
   }
@@ -301,6 +310,8 @@ export function $wrapNodesImpl(
     isPointAttached(prevSelection.focus)
   ) {
     $setSelection(prevSelection.clone());
+  } else if (lastElement !== null) {
+    lastElement.selectEnd();
   } else {
     selection.dirty = true;
   }
@@ -468,7 +479,12 @@ export function $cloneRangeSelectionContent(
   const [anchorOffset, focusOffset] = selection.getCharacterOffsets();
   const nodes = selection.getNodes();
 
-  if (nodes.length === 0) {
+  if (
+    nodes.length === 0 ||
+    (nodes.length === 1 &&
+      $isElementNode(nodes[0]) &&
+      nodes[0].excludeFromCopy('clone'))
+  ) {
     return {
       nodeMap: [],
       range: [],
