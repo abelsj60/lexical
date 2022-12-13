@@ -18,15 +18,11 @@ import {
   Spread,
   TextNode,
 } from 'lexical';
+
 import {
   addClassNamesToElement,
   removeClassNamesFromElement,
 } from '../../lexical-utils/src';
-import {
-  $createCodeLineNode,
-  getLinesFromSelection,
-  handleMultiLineDelete,
-} from './clnNext';
 
 type SerializedCodeHighlightNode = Spread<
   {
@@ -65,96 +61,6 @@ export class CodeHighlightNodeN extends TextNode {
       node.__highlightType || undefined,
       node.__key,
     );
-  }
-
-  deleteLine() {
-    const selection = $getSelection();
-
-    if (selection !== null && $isRangeSelection(selection)) {
-      const isCollapsed = selection.isCollapsed();
-
-      const {
-        topPoint,
-        topLine: line,
-        lineRangeFromSelection: linesForUpdate,
-      } = getLinesFromSelection(selection);
-
-      if (typeof line !== 'undefined' && Array.isArray(linesForUpdate)) {
-        if (isCollapsed) {
-          if (selection.anchor.offset === 0) {
-            // delete one empty CodeLine
-            const prevLine = line.getPreviousSibling();
-
-            if (prevLine !== null) {
-              const isStartOfLine = line.isStartOfLine();
-              const isPreviousLineEmpty = prevLine.isEmptyLine();
-
-              if (isPreviousLineEmpty || isStartOfLine) {
-                if (isPreviousLineEmpty) {
-                  prevLine.remove();
-                } else if (isStartOfLine) {
-                  const children = line.getChildren();
-                  const nextOffset = prevLine.getChildrenSize();
-
-                  prevLine.append(children);
-                  prevLine.select(nextOffset, nextOffset);
-                }
-
-                return true;
-              }
-            }
-          }
-        } else {
-          // delete ranges: CodeHighlight-to-CodeHighlight, CodeLine-to-CodeHighlight
-          handleMultiLineDelete(line, linesForUpdate, topPoint);
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  insertNewAfter() {
-    const selection = $getSelection();
-
-    if (selection !== null && $isRangeSelection(selection)) {
-      const {
-        topPoint,
-        splitText,
-        topLine: line,
-        lineRangeFromSelection: linesForUpdate,
-      } = getLinesFromSelection(selection);
-
-      if (typeof line !== 'undefined' && Array.isArray(linesForUpdate)) {
-        const newLine = $createCodeLineNode();
-
-        const lineOffset = line.getLineOffset(topPoint);
-        const textToOffset = line.getTextContent().slice(0, lineOffset);
-        const firstCharacterIndex = line.getFirstCharacterIndex(textToOffset);
-        const lineSpacers =
-          firstCharacterIndex > 0 ? line.makeSpace(firstCharacterIndex) : '';
-
-        if (Array.isArray(splitText)) {
-          const [textBeforeSplit, textAfterSplit] = splitText;
-          const leavingTextPlusLineSpacers = `${lineSpacers}${textAfterSplit}`;
-          const code = line.getHighlightNodes(
-            leavingTextPlusLineSpacers,
-          ) as CodeHighlightNodeN[];
-
-          newLine.append(...code);
-
-          line.insertAfter(newLine);
-          line.replaceLineCode(textBeforeSplit);
-          linesForUpdate.slice(1).forEach((ln) => ln.remove());
-
-          const hasChildren = newLine.getChildrenSize() > 0;
-          newLine.nextSelection(hasChildren ? lineSpacers.length : 0);
-
-          return newLine;
-        }
-      }
-    }
   }
 
   getHighlightType() {

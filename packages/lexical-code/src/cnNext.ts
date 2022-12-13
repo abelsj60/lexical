@@ -45,11 +45,14 @@ import 'prismjs/components/prism-rust';
 import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-swift';
 
-import * as Prism from 'prismjs';
-import {addClassNamesToElement} from '../../lexical-utils/src';
-import {DEFAULT_CODE_LANGUAGE} from './CodeHighlightNode';
-import {$createCodeLineNode, CodeLineNodeN} from './clnNext';
-import {CodeHighlightNodeN} from './chnNext';
+export interface CodeNodeOptions {
+  codeOnly: boolean;
+  defaultLanguage: string | undefined;
+  tokenizer: Tokenizer | null;
+}
+export interface SerializableCodeNodeOptions extends CodeNodeOptions {
+  tokenizer: null;
+}
 
 type SerializedCodeNodeN = Spread<
   {
@@ -82,7 +85,7 @@ export class CodeNodeN extends ElementNode {
   }
 
   static clone(node: CodeNodeN): CodeNodeN {
-    return new CodeNodeN(node.__language, node.__key);
+    return new CodeNodeN(node.__language, node.__options, node.__key);
   }
 
   constructor(
@@ -208,7 +211,10 @@ export class CodeNodeN extends ElementNode {
   }
 
   static importJSON(serializedNode: SerializedCodeNodeN): CodeNodeN {
-    const node = $createCodeNode(serializedNode.language);
+    const node = $createCodeNodeN(
+      serializedNode.__language,
+      serializedNode.__options,
+    );
     node.setFormat(serializedNode.format);
     node.setIndent(serializedNode.indent);
     node.setDirection(serializedNode.direction); // TODO: remove?
@@ -288,29 +294,6 @@ export class CodeNodeN extends ElementNode {
     const lastLine = self.getLastChild();
 
     if ($isCodeLineNodeN(lastLine)) {
-      lastLine.nextSelection(lastLine.getChildrenSize());
-    }
-  }
-
-  insertRawText(text: string) {
-    if (typeof this.getLanguage() === 'undefined') {
-      this.setLanguage(DEFAULT_CODE_LANGUAGE);
-    }
-
-    const lines = text.split(/\n/g).reduce((lineHolder, line) => {
-      const newLine = $createCodeLineNode();
-      const code = newLine.getHighlightNodes(line) as CodeHighlightNodeN[];
-
-      newLine.append(...code);
-      lineHolder.push(newLine);
-
-      return lineHolder;
-    }, [] as CodeLineNodeN[]);
-
-    this.splice(0, lines.length, lines);
-    const lastLine = this.getLastChild() as CodeLineNodeN;
-
-    if (lastLine !== null) {
       lastLine.nextSelection(lastLine.getChildrenSize());
     }
   }
@@ -435,9 +418,11 @@ export class CodeNodeN extends ElementNode {
 
 export function $createCodeNodeN(
   language?: string | null | undefined,
+  options?: Partial<CodeNodeOptions>,
 ): CodeNodeN {
-  return new CodeNodeN(language);
+  return new CodeNodeN(language, options);
 }
+
 export function $isCodeNodeN(
   node: LexicalNode | null | undefined,
 ): node is CodeNodeN {

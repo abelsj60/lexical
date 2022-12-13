@@ -157,6 +157,7 @@ export default function Editor(): JSX.Element {
               ErrorBoundary={LexicalErrorBoundary}
             />
             <MarkdownShortcutPlugin />
+            <CodeHighlightPluginN />
             {/* <CodeHighlightPlugin /> */}
             <ListPlugin />
             <CheckListPlugin />

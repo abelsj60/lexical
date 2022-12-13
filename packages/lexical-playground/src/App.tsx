@@ -18,8 +18,8 @@ import {
 } from 'lexical';
 import * as React from 'react';
 
-import {CodeLineNodeN} from '../../lexical-code/src/clnNext';
-import {$isCodeNodeN} from '../../lexical-code/src/cnNext';
+// import { $createCodeNodeN } from '../../lexical-code/src/cnNext';
+import {getCodeOverrides} from '../../lexical-code/src/codeHltrNext';
 import {isDevPlayground} from './appSettings';
 import {SettingsContext, useSettings} from './context/SettingsContext';
 import {SharedAutocompleteContext} from './context/SharedAutocompleteContext';
@@ -143,18 +143,7 @@ function App(): JSX.Element {
       ? undefined
       : prepopulatedRichText,
     namespace: 'Playground',
-    nodes: [
-      ...PlaygroundNodes,
-      {
-        replace: ParagraphNode,
-        with: (node) => {
-          const parentNode = node.getParent();
-          if ($isCodeNodeN(parentNode)) {
-            return new CodeLineNodeN();
-          }
-        },
-      },
-    ],
+    nodes: [...PlaygroundNodes, ...getCodeOverrides()],
     onError: (error: Error) => {
       throw error;
     },

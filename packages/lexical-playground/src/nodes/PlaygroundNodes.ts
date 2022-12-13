@@ -7,9 +7,6 @@
  */
 
 // eslint-disable-next-line simple-import-sort/imports
-import type {Klass, LexicalNode} from 'lexical';
-
-// import {CodeHighlightNode, CodeNode} from '@lexical/code';
 import {HashtagNode} from '@lexical/hashtag';
 import {AutoLinkNode, LinkNode} from '@lexical/link';
 import {ListItemNode, ListNode} from '@lexical/list';
@@ -46,13 +43,11 @@ const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   ListNode,
   ListItemNode,
   QuoteNode,
-  // CodeNode,
   NewTableNode,
   TableNode,
   TableCellNode,
   TableRowNode,
   HashtagNode,
-  // CodeHighlightNode,
   AutoLinkNode,
   LinkNode,
   OverflowNode,
@@ -73,10 +68,7 @@ const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   CollapsibleContainerNode,
   CollapsibleContentNode,
   CollapsibleTitleNode,
-
-  CodeNodeN,
-  CodeLineNodeN,
-  CodeHighlightNodeN,
+  ...getCodeNodes(),
 ];
 
 export default PlaygroundNodes;
