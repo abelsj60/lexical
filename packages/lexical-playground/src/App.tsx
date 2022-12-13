@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-
+// eslint-disable-next-line simple-import-sort/imports
 import {$createLinkNode} from '@lexical/link';
 import {$createListItemNode, $createListNode} from '@lexical/list';
 import {LexicalComposer} from '@lexical/react/LexicalComposer';
@@ -13,8 +13,8 @@ import {$createHeadingNode, $createQuoteNode} from '@lexical/rich-text';
 import {$createParagraphNode, $createTextNode, $getRoot} from 'lexical';
 import * as React from 'react';
 
-// import { isDevPlayground } from '../../lexical-code/src/clnNext';
-// import { $isCodeNodeN } from '../../lexical-code/src/cnNext';
+// import { $createCodeNodeN } from '../../lexical-code/src/cnNext';
+import {getCodeOverrides} from '../../lexical-code/src/codeHltrNext';
 import {isDevPlayground} from './appSettings';
 import {SettingsContext, useSettings} from './context/SettingsContext';
 import {SharedAutocompleteContext} from './context/SharedAutocompleteContext';
@@ -113,19 +113,32 @@ function prepopulatedRichText() {
   }
 }
 
+// function devSnippetMaker_TEMP() {
+//   const starterCode = `function C() {
+
+//   const [e] = use();
+//   const [f] = ok();
+// }`;
+//   const root = $getRoot();
+//   const codeNode = $createCodeNodeN(undefined);
+//   codeNode.insertRawText(starterCode);
+//   root.append(codeNode);
+// }
+
 function App(): JSX.Element {
   const {
     settings: {isCollab, emptyEditor, measureTypingPerf},
   } = useSettings();
 
   const initialConfig = {
+    // editorState: devSnippetMaker_TEMP,
     editorState: isCollab
       ? null
       : emptyEditor
       ? undefined
       : prepopulatedRichText,
     namespace: 'Playground',
-    nodes: [...PlaygroundNodes],
+    nodes: [...PlaygroundNodes, ...getCodeOverrides()],
     onError: (error: Error) => {
       throw error;
     },

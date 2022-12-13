@@ -6,7 +6,6 @@
  *
  */
 // eslint-disable-next-line simple-import-sort/imports
-// import { HashtagNode } from '@lexical/code';
 import {HashtagNode} from '@lexical/hashtag';
 import {AutoLinkNode, LinkNode} from '@lexical/link';
 import {ListItemNode, ListNode} from '@lexical/list';
@@ -15,11 +14,9 @@ import {OverflowNode} from '@lexical/overflow';
 import {HorizontalRuleNode} from '@lexical/react/LexicalHorizontalRuleNode';
 import {HeadingNode, QuoteNode} from '@lexical/rich-text';
 import {TableCellNode, TableNode, TableRowNode} from '@lexical/table';
-import {Klass, LexicalNode, ParagraphNode} from 'lexical';
+import {Klass, LexicalNode} from 'lexical';
+import {getCodeNodes} from '../../../lexical-code/src/codeHltrNext';
 
-import {CodeHighlightNodeN} from '../../../lexical-code/src/chnNext';
-import {CodeLineNodeN} from '../../../lexical-code/src/clnNext';
-import {CodeNodeN} from '../../../lexical-code/src/cnNext';
 import {CollapsibleContainerNode} from '../plugins/CollapsiblePlugin/CollapsibleContainerNode';
 import {CollapsibleContentNode} from '../plugins/CollapsiblePlugin/CollapsibleContentNode';
 import {CollapsibleTitleNode} from '../plugins/CollapsiblePlugin/CollapsibleTitleNode';
@@ -42,13 +39,11 @@ const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   ListNode,
   ListItemNode,
   QuoteNode,
-  // CodeNode,
   NewTableNode,
   TableNode,
   TableCellNode,
   TableRowNode,
   HashtagNode,
-  // CodeHighlightNode,
   AutoLinkNode,
   LinkNode,
   OverflowNode,
@@ -69,31 +64,7 @@ const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   CollapsibleContainerNode,
   CollapsibleContentNode,
   CollapsibleTitleNode,
-
-  CodeNodeN,
-  CodeLineNodeN,
-  CodeHighlightNodeN,
-  {
-    replace: ParagraphNode,
-    with: (node) => {
-      return new ParagraphNode();
-    },
-  },
-  // {
-  //   replace: ParagraphNode,
-  //   // @ts-ignore
-  //   with: (node) => {
-  //     const selection = $getSelection();
-
-  //     if (selection !== null) {
-  //       if ($isCodeNodeN(selection.anchor.getNode())) {
-  //         return new CodeLineNodeN();
-  //       }
-  //     }
-
-  //     return new ParagraphNode();
-  //   },
-  // },
+  ...getCodeNodes(),
 ];
 
 export default PlaygroundNodes;

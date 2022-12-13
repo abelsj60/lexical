@@ -8,38 +8,56 @@
 
 // eslint-disable-next-line simple-import-sort/imports
 import {
-  SerializedElementNode,
-  Spread,
-  ElementNode,
-  $createParagraphNode,
   $createLineBreakNode,
+  $createParagraphNode,
+  $getSelection,
+  $isRangeSelection,
+  DOMConversionOutput,
+  EditorConfig,
+  ElementNode,
   LexicalNode,
   NodeKey,
-  EditorConfig,
-  DOMConversionOutput,
+  ParagraphNode,
+  SerializedElementNode,
+  Spread,
+  TextNode,
 } from 'lexical';
+import * as Prism from 'prismjs';
 
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-markup';
-import 'prismjs/components/prism-markdown';
+import {addClassNamesToElement} from '../../lexical-utils/src';
+import {
+  $createCodeLineNode,
+  $isCodeLineNodeN,
+  CodeLineNodeN,
+  Tokenizer,
+} from './clnNext';
+import {DEFAULT_CODE_LANGUAGE} from './CodeHighlightNode';
+
 import 'prismjs/components/prism-c';
+import 'prismjs/components/prism-clike';
 import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-markdown';
+import 'prismjs/components/prism-markup';
 import 'prismjs/components/prism-objectivec';
-import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-rust';
+import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-swift';
 
-import * as Prism from 'prismjs';
-import {addClassNamesToElement} from '../../lexical-utils/src';
-import {DEFAULT_CODE_LANGUAGE} from './CodeHighlightNode';
-import {$createCodeLineNode, CodeLineNodeN} from './clnNext';
-import {CodeHighlightNodeN} from './chnNext';
+export interface CodeNodeOptions {
+  codeOnly: boolean;
+  defaultLanguage: string | undefined;
+  tokenizer: Tokenizer | null;
+}
+export interface SerializableCodeNodeOptions extends CodeNodeOptions {
+  tokenizer: null;
+}
 
 type SerializedCodeNodeN = Spread<
   {
-    language: string | null | undefined;
+    __language: string | null | undefined;
+    __options: SerializableCodeNodeOptions;
     type: 'code';
     version: 1;
   },
@@ -60,18 +78,31 @@ const LANGUAGE_DATA_ATTRIBUTE = 'data-highlight-language';
 export class CodeNodeN extends ElementNode {
   /** @internal */
   __language: string | null | undefined;
+  __options: CodeNodeOptions;
 
   static getType() {
     return 'code';
   }
 
   static clone(node: CodeNodeN): CodeNodeN {
-    return new CodeNodeN(node.__language, node.__key);
+    return new CodeNodeN(node.__language, node.__options, node.__key);
   }
 
-  constructor(language?: string | null | undefined, key?: NodeKey) {
+  constructor(
+    language?: string | null | undefined,
+    options?: Partial<CodeNodeOptions>,
+    key?: NodeKey,
+  ) {
     super(key);
-    this.__language = mapToPrismLanguage(language);
+    this.__language = mapToPrismLanguage(
+      language || (options && options.defaultLanguage),
+    );
+    this.__options = {
+      codeOnly: (options && options.codeOnly) || false,
+      defaultLanguage:
+        (options && options.defaultLanguage) || DEFAULT_CODE_LANGUAGE,
+      tokenizer: null, // unserializable, updated via plugin
+    };
   }
 
   // View
@@ -180,40 +211,78 @@ export class CodeNodeN extends ElementNode {
   }
 
   static importJSON(serializedNode: SerializedCodeNodeN): CodeNodeN {
-    const node = $createCodeNode(serializedNode.language);
+    const node = $createCodeNodeN(
+      serializedNode.__language,
+      serializedNode.__options,
+    );
     node.setFormat(serializedNode.format);
     node.setIndent(serializedNode.indent);
-    node.setDirection(serializedNode.direction);
+    node.setDirection(serializedNode.direction); // TODO: remove?
     return node;
   }
 
   exportJSON(): SerializedCodeNodeN {
     return {
       ...super.exportJSON(),
-      language: this.getLanguage(),
+      __language: this.getLanguage(),
+      __options: this.getSerializableConfig(),
       type: 'code',
       version: 1,
     };
   }
 
+  hasBreakOutLine(): boolean {
+    const self = this.getLatest();
+
+    if (!self.getConfig().codeOnly) {
+      const selection = $getSelection();
+
+      if ($isRangeSelection(selection)) {
+        const anchorNode = selection.anchor.getNode();
+        const lastLine = self.getLastChild<CodeLineNodeN>();
+        const isLastLineSelected =
+          lastLine !== null && anchorNode.getKey() === lastLine.getKey();
+        const isSelectedLastLineEmpty =
+          isLastLineSelected && lastLine.isEmptyLine();
+
+        if (isSelectedLastLineEmpty) {
+          const previousLine = lastLine.getPreviousSibling<CodeLineNodeN>();
+          return previousLine !== null && previousLine.isEmptyLine();
+        }
+      }
+    }
+
+    return false;
+  }
+
   // Mutation
   insertNewAfter() {
-    const newElement = $createParagraphNode();
+    const self = this.getLatest();
+    const lastLine = self.getLastChild() as CodeLineNodeN;
+    const prevLine = lastLine.getPreviousSibling() as CodeLineNodeN;
+    const paragraph = $createParagraphNode();
 
-    this.insertAfter(newElement);
-    newElement.selectStart();
+    paragraph.setDirection(this.getDirection());
 
-    return newElement;
+    prevLine.remove();
+    lastLine.remove();
+
+    self.insertAfter(paragraph);
+    paragraph.selectStart();
+
+    return paragraph;
   }
 
   insertRawText(text: string) {
-    if (typeof this.getLanguage() === 'undefined') {
-      this.setLanguage(DEFAULT_CODE_LANGUAGE);
+    const self = this.getLatest();
+
+    if (typeof self.getLanguage() === 'undefined') {
+      self.setLanguage(DEFAULT_CODE_LANGUAGE);
     }
 
-    const lines = text.split(/\n/g).reduce((lineHolder, line) => {
+    const lines = text.split(/\r?\n/g).reduce((lineHolder, line) => {
       const newLine = $createCodeLineNode();
-      const code = newLine.getHighlightNodes(line) as CodeHighlightNodeN[];
+      const code = newLine.getHighlightNodes(line);
 
       newLine.append(...code);
       lineHolder.push(newLine);
@@ -221,10 +290,10 @@ export class CodeNodeN extends ElementNode {
       return lineHolder;
     }, [] as CodeLineNodeN[]);
 
-    this.splice(0, lines.length, lines);
-    const lastLine = this.getLastChild() as CodeLineNodeN;
+    self.splice(0, lines.length, lines);
+    const lastLine = self.getLastChild();
 
-    if (lastLine !== null) {
+    if ($isCodeLineNodeN(lastLine)) {
       lastLine.nextSelection(lastLine.getChildrenSize());
     }
   }
@@ -233,28 +302,127 @@ export class CodeNodeN extends ElementNode {
     return false;
   }
 
+  convertToDiv() {
+    const self = this.getLatest();
+    self.replace($createCodeNodeNConverter());
+  }
+
+  getPlainTextNodes() {
+    const self = this.getLatest();
+
+    self.convertToDiv(); // cancels overrides
+
+    return self.getChildren().reduce((lineHolder, line) => {
+      const paragraph = $createParagraphNode();
+      const lineText = line.getTextContent();
+      const textNode = new TextNode(lineText);
+
+      paragraph.append(textNode);
+      lineHolder.push(paragraph);
+
+      return lineHolder;
+    }, [] as ParagraphNode[]);
+  }
+
+  convertToPlainText() {
+    const self = this.getLatest();
+    const parent = self.getParent();
+
+    if (parent !== null) {
+      const index = self.getIndexWithinParent();
+      const deleteCount = self.getChildrenSize();
+      const plainTextNodes = self.getPlainTextNodes();
+
+      parent.splice(index, deleteCount, plainTextNodes);
+
+      return true;
+    }
+
+    return false;
+  }
+
   collapseAtStart() {
-    const paragraph = $createParagraphNode();
-    const children = this.getChildren();
-    children.forEach((child) => paragraph.append(child));
-    this.replace(paragraph);
-    return true;
+    const self = this.getLatest();
+
+    if (!this.getConfig().codeOnly) {
+      return self.convertToPlainText();
+    }
+
+    return false;
   }
 
   setLanguage(language: string): void {
-    const writable = this.getWritable();
+    const self = this.getLatest();
+    const writable = self.getWritable();
     writable.__language = mapToPrismLanguage(language);
+    self.updateLines(); // keep kids current
   }
 
   getLanguage() {
     return this.getLatest().__language;
   }
+
+  setTokenizer(tokenizer: Tokenizer): void {
+    const self = this.getLatest();
+    const writable = self.getWritable();
+    const currentConfig = writable.__options;
+
+    writable.__options = {
+      ...currentConfig,
+      tokenizer,
+    };
+  }
+
+  setConfig(options: Partial<CodeNodeOptions>) {
+    const self = this.getLatest();
+    const writable = self.getWritable();
+    const currentConfig = self.getConfig();
+
+    writable.__options = {
+      codeOnly:
+        typeof options.codeOnly !== 'undefined'
+          ? options.codeOnly
+          : currentConfig.codeOnly,
+      defaultLanguage:
+        typeof options.defaultLanguage !== 'undefined'
+          ? options.defaultLanguage
+          : currentConfig.defaultLanguage,
+      tokenizer:
+        typeof options.tokenizer !== 'undefined'
+          ? options.tokenizer
+          : currentConfig.tokenizer,
+    };
+  }
+
+  getConfig(): CodeNodeOptions {
+    return this.getLatest().__options;
+  }
+
+  getSerializableConfig(): SerializableCodeNodeOptions {
+    return {
+      ...this.getLatest().__options,
+      tokenizer: null,
+    };
+  }
+
+  updateLines(): void {
+    const self = this.getLatest();
+
+    self.getChildren().forEach((line) => {
+      if ($isCodeLineNodeN(line)) {
+        line.updateLineCode();
+      }
+    });
+  }
 }
-export function $createCodeNode(
+
+export function $createCodeNodeN(
   language?: string | null | undefined,
+  options?: Partial<CodeNodeOptions>,
 ): CodeNodeN {
-  return new CodeNodeN(language);
+  return new CodeNodeN(language, options);
 }
+
 export function $isCodeNodeN(
   node: LexicalNode | null | undefined,
 ): node is CodeNodeN {
@@ -263,7 +431,7 @@ export function $isCodeNodeN(
 
 function convertPreElement(domNode: Node): DOMConversionOutput {
   return {
-    node: $createCodeNode(),
+    node: $createCodeNodeN(),
     preformatted: true,
   };
 }
@@ -282,14 +450,14 @@ function convertDivElement(domNode: Node): DOMConversionOutput {
 
       return childLexicalNodes;
     },
-    node: isCode ? $createCodeNode() : null,
+    node: isCode ? $createCodeNodeN() : null,
     preformatted: isCode,
   };
 }
 
 function convertTableElement() {
   return {
-    node: $createCodeNode(),
+    node: $createCodeNodeN(),
     preformatted: true,
   };
 }
@@ -328,4 +496,43 @@ function isGitHubCodeCell(
 
 function isGitHubCodeTable(table: HTMLTableElement): table is HTMLTableElement {
   return table.classList.contains('js-file-line-container');
+}
+
+export class CodeNodeConverter extends ElementNode {
+  static getType() {
+    return 'code-node-converter';
+  }
+
+  static clone(): CodeNodeConverter {
+    return new CodeNodeConverter();
+  }
+
+  constructor(key?: NodeKey) {
+    super(key);
+  }
+
+  static importJSON() {
+    return $createCodeNodeNConverter();
+  }
+
+  exportJSON() {
+    return {
+      ...super.exportJSON(),
+      type: 'code-node-converter',
+      version: 1,
+    };
+  }
+
+  createDOM(): HTMLElement {
+    const element = document.createElement('div');
+    return element;
+  }
+}
+
+export function $createCodeNodeNConverter(): CodeNodeConverter {
+  return new CodeNodeConverter();
+}
+
+export function $isCodeNodeConverter(node: LexicalNode | null | undefined) {
+  return node instanceof CodeNodeConverter;
 }

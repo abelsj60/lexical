@@ -8,7 +8,6 @@
 
 import './index.css';
 
-import {$isCodeHighlightNode} from '@lexical/code';
 import {$isLinkNode, TOGGLE_LINK_COMMAND} from '@lexical/link';
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 import {mergeRegister} from '@lexical/utils';
@@ -25,6 +24,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import * as React from 'react';
 import {createPortal} from 'react-dom';
 
+import {$isCodeLineNodeN} from '../../../../lexical-code/src/clnNext';
 import {getDOMRangeRect} from '../../utils/getDOMRangeRect';
 import {getSelectedNode} from '../../utils/getSelectedNode';
 import {setFloatingElemPosition} from '../../utils/setFloatingElemPosition';
@@ -273,7 +273,8 @@ function useFloatingTextFormatToolbar(
       }
 
       if (
-        !$isCodeHighlightNode(selection.anchor.getNode()) &&
+        !$isCodeLineNodeN(selection.anchor.getNode()) &&
+        !$isCodeLineNodeN(selection.anchor.getNode().getParent()) &&
         selection.getTextContent() !== ''
       ) {
         setIsText($isTextNode(node));

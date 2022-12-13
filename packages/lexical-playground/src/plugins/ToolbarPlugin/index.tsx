@@ -65,14 +65,17 @@ import * as React from 'react';
 import {IS_APPLE} from 'shared/environment';
 
 import {
+  $createCodeLineNode,
+  $isCodeLineNodeN,
   CODE_LANGUAGE_FRIENDLY_NAME_MAP,
   CODE_LANGUAGE_MAP,
   getLanguageFriendlyName,
 } from '../../../../lexical-code/src/clnNext';
 import {
-  $createCodeNode,
+  $createCodeNodeN,
   $isCodeNodeN,
 } from '../../../../lexical-code/src/cnNext';
+import {dispatchCodeToPlainTextCommand} from '../../../../lexical-code/src/codeHltrNext';
 import useModal from '../../hooks/useModal';
 import catTypingGif from '../../images/cat-typing.gif';
 import {$createStickyNode} from '../../nodes/StickyNode';
@@ -167,6 +170,7 @@ function BlockFormatDropDown({
           $isRangeSelection(selection) ||
           DEPRECATED_$isGridSelection(selection)
         ) {
+          dispatchCodeToPlainTextCommand(editor);
           $wrapNodes(selection, () => $createParagraphNode());
         }
       });
@@ -182,6 +186,7 @@ function BlockFormatDropDown({
           $isRangeSelection(selection) ||
           DEPRECATED_$isGridSelection(selection)
         ) {
+          dispatchCodeToPlainTextCommand(editor);
           $wrapNodes(selection, () => $createHeadingNode(headingSize));
         }
       });
@@ -190,24 +195,30 @@ function BlockFormatDropDown({
 
   const formatBulletList = () => {
     if (blockType !== 'bullet') {
+      dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
     } else {
+      dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined);
     }
   };
 
   const formatCheckList = () => {
     if (blockType !== 'check') {
+      dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined);
     } else {
+      dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined);
     }
   };
 
   const formatNumberedList = () => {
     if (blockType !== 'number') {
+      dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
     } else {
+      dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined);
     }
   };
@@ -221,6 +232,7 @@ function BlockFormatDropDown({
           $isRangeSelection(selection) ||
           DEPRECATED_$isGridSelection(selection)
         ) {
+          dispatchCodeToPlainTextCommand(editor);
           $wrapNodes(selection, () => $createQuoteNode());
         }
       });
@@ -238,13 +250,21 @@ function BlockFormatDropDown({
           DEPRECATED_$isGridSelection(selection)
         ) {
           if (selection.isCollapsed()) {
-            $wrapNodes(selection, () => $createCodeNode());
+            const originalOffset = selection.anchor.offset;
+            const createCodeLine = () => $createCodeLineNode();
+            $wrapNodes(selection, createCodeLine, $createCodeNodeN());
+            const codeLine = selection.anchor.getNode().getParent();
+            const skipLineUpdate =
+              !$isCodeLineNodeN(codeLine) || codeLine.isLineCurrent();
+            if (skipLineUpdate) return;
+            codeLine.updateLineCode();
+            codeLine.nextSelection(originalOffset);
           } else {
+            const codeNode = $createCodeNodeN();
             const textContent = selection.getTextContent();
-            const codeNode = $createCodeNode();
+            // add parent before text insert. avoids error
             selection.insertNodes([codeNode]);
             codeNode.insertRawText(textContent);
-            // selection.insertRawText(textContent);
           }
         }
       });

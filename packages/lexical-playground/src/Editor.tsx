@@ -119,7 +119,6 @@ export default function Editor(): JSX.Element {
         }`}>
         {isMaxLength && <MaxLengthPlugin maxLength={30} />}
         <DragDropPaste />
-        <CodeHighlightPluginN />
         <AutoFocusPlugin />
         <ClearEditorPlugin />
         <ComponentPickerPlugin />
@@ -157,6 +156,7 @@ export default function Editor(): JSX.Element {
               ErrorBoundary={LexicalErrorBoundary}
             />
             <MarkdownShortcutPlugin />
+            <CodeHighlightPluginN />
             {/* <CodeHighlightPlugin /> */}
             <ListPlugin />
             <CheckListPlugin />
