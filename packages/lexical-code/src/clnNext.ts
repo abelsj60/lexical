@@ -12,17 +12,19 @@ import {
   $isRangeSelection,
   DOMConversionMap,
   DOMConversionOutput,
-  DOMExportOutput,
+  // DOMExportOutput,
   EditorConfig,
   // ElementNode,
-  LexicalEditor,
+  // ElementNode,
+  // LexicalEditor,
   LexicalNode,
-  NodeKey,
+  // NodeKey,
   ParagraphNode,
   Point,
   RangeSelection,
-  SerializedElementNode,
-  Spread,
+  // SerializedElementNode,
+  // SerializedParagraphNode,
+  // Spread,
 } from 'lexical';
 import * as Prism from 'prismjs';
 
@@ -56,14 +58,6 @@ export const PrismTokenizer: Tokenizer = {
     return Prism.tokenize(text, language as Prism.Grammar);
   },
 };
-
-type SerializedCodeLineNode = Spread<
-  {
-    type: 'code-line';
-    version: 1;
-  },
-  SerializedElementNode
->;
 
 export const CODE_LANGUAGE_FRIENDLY_NAME_MAP: Record<string, string> = {
   c: 'C',
@@ -109,10 +103,20 @@ export const getCodeLanguages = (): Array<string> =>
     )
     .sort();
 
+// type SerializedCodeLineNode = Spread<
+//   {
+//     type: 'code-line';
+//     // type: 'code-line';
+//     version: 1;
+//   },
+//   SerializedParagraphNode
+//   // SerializedElementNode
+// >;
+
 export class CodeLineNodeN extends ParagraphNode {
-  constructor(key?: NodeKey) {
-    super(key);
-  }
+  // constructor(key?: NodeKey) {
+  //   super(key);
+  // }
 
   static getType() {
     // return 'paragraph';
@@ -173,6 +177,7 @@ export class CodeLineNodeN extends ParagraphNode {
     const self = this.getLatest();
     const normalizedTokens = self.getNormalizedTokens(text);
 
+    // console.log('~~', normalizedTokens)
     return normalizedTokens.map((token) => {
       return $createCodeHighlightNode(token.content, token.type);
     });
@@ -214,8 +219,8 @@ export class CodeLineNodeN extends ParagraphNode {
     // console.log('--', text, normalizedTokens, self, children);
 
     // empty text strings can cause length mismatch on paste
-    // if (children.length !== normalizedTokens.length) return false;
-    // console.log('-')
+    // console.log('--', JSON.stringify(self.getTextContent()), self.getChildren())
+    if (children.length !== normalizedTokens.length) return false;
 
     return children.every((child, idx) => {
       const expected = normalizedTokens[idx];
@@ -383,6 +388,7 @@ export class CodeLineNodeN extends ParagraphNode {
     return false;
   }
 
+  // insertNewAfter(): CodeLineNodeN {
   insertNewAfter(): CodeLineNodeN | ParagraphNode {
     const self = this.getLatest();
 
@@ -461,32 +467,33 @@ export class CodeLineNodeN extends ParagraphNode {
     };
   }
 
-  exportDOM(editor: LexicalEditor): DOMExportOutput {
-    const {element} = super.exportDOM(editor);
+  // exportDOM(editor: LexicalEditor): DOMExportOutput {
+  //   const {element} = super.exportDOM(editor);
 
-    if (element && this.isEmpty()) {
-      element.append(document.createElement('br'));
-    }
+  //   if (element && this.isEmpty()) {
+  //     // console.log('~-~', element)
+  //     // element.append(document.createElement('br'));
+  //   }
 
-    if (element) {
-      const direction = this.getDirection();
-      if (direction) {
-        element.dir = direction;
-      }
-    }
+  //   if (element) {
+  //     const direction = this.getDirection();
+  //     if (direction) {
+  //       element.dir = direction;
+  //     }
+  //   }
 
-    return {
-      element,
-    };
-  }
+  //   return {
+  //     element,
+  //   };
+  // }
 
-  static importJSON(serializedNode: SerializedCodeLineNode): CodeLineNodeN {
+  static importJSON(serializedNode: any): CodeLineNodeN {
     const node = $createCodeLineNode();
     node.setDirection(serializedNode.direction);
     return node;
   }
 
-  exportJSON(): SerializedCodeLineNode {
+  exportJSON(): any {
     return {
       ...super.exportJSON(),
       type: 'code-line',
@@ -517,6 +524,8 @@ export function $isCodeLineNodeN(
   node: LexicalNode | CodeLineNodeN | null | undefined,
 ): node is CodeLineNodeN {
   return node instanceof CodeLineNodeN;
+  // return node instanceof ParagraphNode || node instanceof CodeLineNodeN;
+  // return node instanceof CodeLineNodeN;
 }
 
 function convertDivElement(): DOMConversionOutput {
@@ -609,12 +618,21 @@ export function getLinesFromSelection(selection: RangeSelection) {
 }
 
 function getLineFromPoint(point: Point): CodeLineNodeN | null {
+  // function getLineFromPoint(point: Point): CodeLineNodeN | null {
   const pointNode = point.getNode();
 
   if ($isCodeHighlightNodeN(pointNode)) {
     return pointNode.getParent();
   } else if ($isCodeLineNodeN(pointNode)) {
-    return pointNode;
+    const isCodeLineNodeAssertion = (
+      node: LexicalNode,
+    ): node is CodeLineNodeN => {
+      return 'getHighlightNodes' in node;
+    };
+
+    if (isCodeLineNodeAssertion(pointNode)) {
+      return pointNode;
+    }
   }
 
   return null;

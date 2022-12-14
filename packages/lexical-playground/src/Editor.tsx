@@ -118,7 +118,7 @@ export default function Editor(): JSX.Element {
           !isRichText ? 'plain-text' : ''
         }`}>
         {isMaxLength && <MaxLengthPlugin maxLength={30} />}
-        <CodeHighlightPluginN />
+        {/* <CodeHighlightPluginN /> */}
         <DragDropPaste />
         <AutoFocusPlugin />
         <ClearEditorPlugin />

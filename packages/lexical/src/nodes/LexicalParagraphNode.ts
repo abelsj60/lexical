@@ -14,7 +14,7 @@ import type {
   LexicalNode,
 } from '../LexicalNode';
 import type {SerializedElementNode} from './LexicalElementNode';
-import type {RangeSelection, Spread} from 'lexical';
+import type {Spread} from 'lexical';
 
 import {$applyNodeReplacement, getCachedClassNameArray} from '../LexicalUtils';
 import {ElementNode} from './LexicalElementNode';
@@ -97,7 +97,7 @@ export class ParagraphNode extends ElementNode {
     return node;
   }
 
-  exportJSON(): SerializedElementNode {
+  exportJSON(): SerializedParagraphNode {
     return {
       ...super.exportJSON(),
       type: 'paragraph',
@@ -107,11 +107,11 @@ export class ParagraphNode extends ElementNode {
 
   // Mutation
 
-  insertNewAfter(_: RangeSelection, restoreSelection: boolean): ParagraphNode {
+  insertNewAfter(): ParagraphNode {
     const newElement = $createParagraphNode();
     const direction = this.getDirection();
     newElement.setDirection(direction);
-    this.insertAfter(newElement, restoreSelection);
+    this.insertAfter(newElement);
     return newElement;
   }
 

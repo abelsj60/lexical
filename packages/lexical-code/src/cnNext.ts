@@ -93,14 +93,14 @@ export class CodeNodeN extends ElementNode {
     options?: Partial<CodeNodeOptions>,
     key?: NodeKey,
   ) {
+    const defaultLanguage =
+      (options && options.defaultLanguage) || DEFAULT_CODE_LANGUAGE;
+
     super(key);
-    this.__language = mapToPrismLanguage(
-      language || (options && options.defaultLanguage),
-    );
+    this.__language = mapToPrismLanguage(language || defaultLanguage);
     this.__options = {
       codeOnly: (options && options.codeOnly) || false,
-      defaultLanguage:
-        (options && options.defaultLanguage) || DEFAULT_CODE_LANGUAGE,
+      defaultLanguage: defaultLanguage,
       tokenizer: null, // unserializable, updated via plugin
     };
   }
@@ -256,7 +256,7 @@ export class CodeNodeN extends ElementNode {
   }
 
   // Mutation
-  insertNewAfter() {
+  insertNewAfter(): ParagraphNode {
     const self = this.getLatest();
     const lastLine = self.getLastChild() as CodeLineNodeN;
     const prevLine = lastLine.getPreviousSibling() as CodeLineNodeN;
@@ -270,15 +270,17 @@ export class CodeNodeN extends ElementNode {
     self.insertAfter(paragraph);
     paragraph.selectStart();
 
+    // console.log('HERE', self);
+
     return paragraph;
   }
 
-  insertRawText(text: string) {
+  insertRawText(text: string): void {
     const self = this.getLatest();
 
-    if (typeof self.getLanguage() === 'undefined') {
-      self.setLanguage(DEFAULT_CODE_LANGUAGE);
-    }
+    // if (typeof self.getLanguage() === 'undefined') {
+    //   self.setLanguage(DEFAULT_CODE_LANGUAGE);
+    // }
 
     const lines = text.split(/\r?\n/g).reduce((lineHolder, line) => {
       const newLine = $createCodeLineNode();
@@ -290,7 +292,7 @@ export class CodeNodeN extends ElementNode {
       return lineHolder;
     }, [] as CodeLineNodeN[]);
 
-    self.splice(0, lines.length, lines);
+    self.splice(0, self.getChildrenSize(), lines);
     const lastLine = self.getLastChild();
 
     if ($isCodeLineNodeN(lastLine)) {
@@ -307,7 +309,7 @@ export class CodeNodeN extends ElementNode {
     self.replace($createCodeNodeNConverter());
   }
 
-  getPlainTextNodes() {
+  getPlainTextNodes(): ParagraphNode[] {
     const self = this.getLatest();
 
     self.convertToDiv(); // cancels overrides
@@ -324,7 +326,7 @@ export class CodeNodeN extends ElementNode {
     }, [] as ParagraphNode[]);
   }
 
-  convertToPlainText() {
+  convertToPlainText(): boolean {
     const self = this.getLatest();
     const parent = self.getParent();
 
@@ -373,7 +375,7 @@ export class CodeNodeN extends ElementNode {
     };
   }
 
-  setConfig(options: Partial<CodeNodeOptions>) {
+  setConfig(options: Partial<CodeNodeOptions>): void {
     const self = this.getLatest();
     const writable = self.getWritable();
     const currentConfig = self.getConfig();
@@ -405,14 +407,21 @@ export class CodeNodeN extends ElementNode {
     };
   }
 
-  updateLines(): void {
+  updateLines(): boolean {
     const self = this.getLatest();
+    let isUpdated = false;
 
     self.getChildren().forEach((line) => {
       if ($isCodeLineNodeN(line)) {
         line.updateLineCode();
+
+        if (!isUpdated) {
+          isUpdated = true;
+        }
       }
     });
+
+    return isUpdated;
   }
 }
 

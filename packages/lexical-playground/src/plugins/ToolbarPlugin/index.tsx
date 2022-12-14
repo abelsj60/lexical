@@ -33,6 +33,7 @@ import {
   $patchStyleText,
   $selectAll,
   $setBlocksType_experimental,
+  // $wrapNodes
 } from '@lexical/selection';
 import {
   $findMatchingParent,
@@ -60,13 +61,15 @@ import {
   SELECTION_CHANGE_COMMAND,
   UNDO_COMMAND,
 } from 'lexical';
+// import { $wrapNodes } from 'packages/lexical-selection/src/range-selection';
+// import { $wrapNodes } from 'packages/lexical-selection/src/range-selection';
 import {useCallback, useEffect, useState} from 'react';
 import * as React from 'react';
 import {IS_APPLE} from 'shared/environment';
 
 import {
-  $createCodeLineNode,
-  $isCodeLineNodeN,
+  // $createCodeLineNode,
+  // $isCodeLineNodeN,
   CODE_LANGUAGE_FRIENDLY_NAME_MAP,
   CODE_LANGUAGE_MAP,
   getLanguageFriendlyName,
@@ -168,9 +171,10 @@ function BlockFormatDropDown({
         if (
           $isRangeSelection(selection) ||
           DEPRECATED_$isGridSelection(selection)
-        )
+        ) {
           dispatchCodeToPlainTextCommand(editor);
           $setBlocksType_experimental(selection, () => $createParagraphNode());
+        }
       });
     }
   };
@@ -183,7 +187,11 @@ function BlockFormatDropDown({
           $isRangeSelection(selection) ||
           DEPRECATED_$isGridSelection(selection)
         ) {
-          $wrapNodes(selection, () => $createHeadingNode(headingSize));
+          // $wrapNodes(selection, () => $createHeadingNode(headingSize));
+          dispatchCodeToPlainTextCommand(editor);
+          $setBlocksType_experimental(selection, () =>
+            $createHeadingNode(headingSize),
+          );
         }
       });
     }
@@ -227,7 +235,8 @@ function BlockFormatDropDown({
           $isRangeSelection(selection) ||
           DEPRECATED_$isGridSelection(selection)
         ) {
-          $wrapNodes(selection, () => $createQuoteNode());
+          dispatchCodeToPlainTextCommand(editor);
+          $setBlocksType_experimental(selection, () => $createQuoteNode());
         }
       });
     }
@@ -237,14 +246,34 @@ function BlockFormatDropDown({
     // <-- HERE
     if (blockType !== 'code') {
       editor.update(() => {
-        let selection = $getSelection();
+        const selection = $getSelection();
 
         if (
           $isRangeSelection(selection) ||
           DEPRECATED_$isGridSelection(selection)
         ) {
+          // if (selection.isCollapsed()) {
+          //   // $wrapNodes(selection, () => $createCodeNodeN());
+          //   $wrapNodes(selection, () )
+          //   $setBlocksType_experimental(selection, () => $createCodeNodeN());
+          // } else {
+          //   const codeNode = $createCodeNodeN();
+          //   const textContent = selection.getTextContent();
+          //   // add parent before text insert. avoids error
+          //   selection.insertNodes([codeNode]);
+          //   codeNode.insertRawText(textContent);
+          // }
+
           if (selection.isCollapsed()) {
-            $wrapNodes(selection, () => $createCodeNode());
+            // const originalOffset = selection.anchor.offset;
+            // const createCodeLine = () => $createCodeLineNode();
+            // $wrapNodes(selection, createCodeLine, $createCodeNodeN());
+            // const codeLine = selection.anchor.getNode().getParent();
+            // const skipLineUpdate =
+            //   !$isCodeLineNodeN(codeLine) || codeLine.isLineCurrent();
+            // if (skipLineUpdate) return;
+            // codeLine.updateLineCode();
+            // codeLine.nextSelection(originalOffset);
           } else {
             const codeNode = $createCodeNodeN();
             const textContent = selection.getTextContent();

@@ -115,7 +115,14 @@ export class CodeHighlightNodeN extends TextNode {
   static importJSON(
     serializedNode: SerializedCodeHighlightNode,
   ): CodeHighlightNodeN {
-  ): CodeHighlightNodeN {
+    // no blanks! they're often created on copy when an anchor
+    // or focus point is on the last line index (but not 0)
+    // (ideally, not needed, but copy can be weird. alt.
+    // fix might be to take over cut/copy commands...)
+    // if (serializedNode.text === '') {
+    //   return null as unknown as CodeHighlightNodeN;
+    // }
+
     const node = $createCodeHighlightNode(
       serializedNode.text,
       serializedNode.highlightType,
@@ -155,6 +162,10 @@ export class CodeHighlightNodeN extends TextNode {
 
   // canInsertTab() {
   //   return true;
+  // }
+
+  // canBeEmpty() {
+  //   return false;
   // }
 }
 

@@ -8,7 +8,13 @@
 
 // eslint-disable-next-line simple-import-sort/imports
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
-import {createCommand, LexicalCommand, Point} from 'lexical';
+import {
+  COPY_COMMAND,
+  createCommand,
+  LexicalCommand,
+  PASTE_COMMAND,
+  Point,
+} from 'lexical';
 import * as React from 'react';
 
 import {mergeRegister} from '../../lexical-utils/src';
@@ -453,6 +459,72 @@ export function registerCodeHighlightingN(
       () => {
         if (isCodeNodeActive()) {
           return convertCodeToPlainText();
+        }
+
+        return false;
+      },
+      COMMAND_PRIORITY_LOW,
+    ),
+    editor.registerCommand(
+      COPY_COMMAND,
+      // PASTE_COMMAND,
+      (payload) => {
+        const selection = $getSelection();
+
+        // if (isCodeNodeActive()) {
+        if ($isRangeSelection(selection)) {
+          // const clipboardData = payload.clipboardData;
+          // if (clipboardData === null) {
+          //   return false;
+          // }
+          // if (clipboardData !== null) {
+          //   console.log(
+          //     '1.',
+          //     $getHtmlContent(editor),
+          //   );
+          //   console.log(
+          //     '2.',
+          //     $getLexicalContent(editor),
+          //   );
+          //   console.log(
+          //     '3.',
+          //     clipboardData,
+          //   );
+          // }
+        }
+        if (payload) {
+          // console.log('==', payload.dataTransfer.getData('application/x-lexical-editor'), payload)
+        }
+        // }
+
+        return false;
+      },
+      COMMAND_PRIORITY_LOW,
+    ),
+    editor.registerCommand(
+      PASTE_COMMAND,
+      (payload) => {
+        const selection = $getSelection();
+
+        if ($isRangeSelection(selection)) {
+          // const clipboardData = payload.clipboardData;
+          // if (clipboardData === null) {
+          //   return false;
+          // }
+          // if (clipboardData !== null) {
+          // console.log(
+          //   '1.',
+          //   JSON.stringify(clipboardData.getData('text/plain')),
+          // );
+          // console.log(
+          //   '2.',
+          //   clipboardData.getData('text/html'),
+          // );
+          // console.log(
+          //   '3.',
+          //   clipboardData.getData('application/x-lexical-editor'),
+          // );
+          // }
         }
 
         return false;
