@@ -66,17 +66,17 @@ import * as React from 'react';
 import {IS_APPLE} from 'shared/environment';
 
 import {dispatchCodeToPlainTextCommand} from '../../../../lexical-code/src/v2/Commands';
-import {
-  $isLinedCodeLineNode,
-  CODE_LANGUAGE_FRIENDLY_NAME_MAP,
-  CODE_LANGUAGE_MAP,
-  getLanguageFriendlyName,
-} from '../../../../lexical-code/src/v2/LinedCodeLineNode';
+import {$isLinedCodeLineNode} from '../../../../lexical-code/src/v2/LinedCodeLineNode';
 import {
   $createLinedCodeNode,
   $isLinedCodeNode,
   LinedCodeNode,
 } from '../../../../lexical-code/src/v2/LinedCodeNode';
+import {
+  CODE_LANGUAGE_FRIENDLY_NAME_MAP,
+  CODE_LANGUAGE_MAP,
+  getLanguageFriendlyName,
+} from '../../../../lexical-code/src/v2/Prism';
 import useModal from '../../hooks/useModal';
 import catTypingGif from '../../images/cat-typing.gif';
 import {$createStickyNode} from '../../nodes/StickyNode';

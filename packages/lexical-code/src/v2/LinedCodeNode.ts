@@ -30,8 +30,6 @@ import {
   $createLinedCodeLineNode,
   $isLinedCodeLineNode,
   LinedCodeLineNode,
-  mapToPrismLanguage,
-  Tokenizer,
 } from './LinedCodeLineNode';
 
 import 'prismjs/components/prism-c';
@@ -53,6 +51,7 @@ import {
   isCodeElement,
   isGitHubCodeTable,
 } from './DomDecoders';
+import {mapToPrismLanguage, Tokenizer} from './Prism';
 
 export type Unserializeable = null;
 export interface LinedCodeNodeOptions {

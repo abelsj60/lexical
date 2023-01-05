@@ -3,12 +3,8 @@
 import {ParagraphNode, TextNode} from 'lexical';
 import {LinedCodeHighlightNode} from './LinedCodeHighlightNode';
 
-import {
-  DEFAULT_CODE_LANGUAGE,
-  LinedCodeLineNode,
-  PrismTokenizer,
-  Tokenizer,
-} from './LinedCodeLineNode';
+import {DEFAULT_CODE_LANGUAGE, PrismTokenizer, Tokenizer} from './Prism';
+import {LinedCodeLineNode} from './LinedCodeLineNode';
 import {
   $isLinedCodeNode,
   LinedCodeNode,
