@@ -6,8 +6,6 @@
  *
  */
 
-import type {LexicalEditor, NodeKey} from 'lexical';
-
 import {$isLinkNode, TOGGLE_LINK_COMMAND} from '@lexical/link';
 import {
   $isListNode,
@@ -33,7 +31,6 @@ import {
   $patchStyleText,
   $selectAll,
   $setBlocksType_experimental,
-  // $wrapNodes
 } from '@lexical/selection';
 import {
   $findMatchingParent,
@@ -46,6 +43,7 @@ import {
   $getNodeByKey,
   $getRoot,
   $getSelection,
+  $isParagraphNode,
   $isRangeSelection,
   $isRootOrShadowRoot,
   $isTextNode,
@@ -56,29 +54,29 @@ import {
   FORMAT_ELEMENT_COMMAND,
   FORMAT_TEXT_COMMAND,
   INDENT_CONTENT_COMMAND,
+  LexicalEditor,
+  NodeKey,
   OUTDENT_CONTENT_COMMAND,
   REDO_COMMAND,
   SELECTION_CHANGE_COMMAND,
   UNDO_COMMAND,
 } from 'lexical';
-// import { $wrapNodes } from 'packages/lexical-selection/src/range-selection';
-// import { $wrapNodes } from 'packages/lexical-selection/src/range-selection';
 import {useCallback, useEffect, useState} from 'react';
 import * as React from 'react';
 import {IS_APPLE} from 'shared/environment';
 
+import {dispatchCodeToPlainTextCommand} from '../../../../lexical-code/src/v2/Commands';
 import {
-  // $createCodeLineNode,
-  // $isCodeLineNodeN,
+  $isLinedCodeLineNode,
   CODE_LANGUAGE_FRIENDLY_NAME_MAP,
   CODE_LANGUAGE_MAP,
   getLanguageFriendlyName,
-} from '../../../../lexical-code/src/clnNext';
+} from '../../../../lexical-code/src/v2/LinedCodeLineNode';
 import {
-  $createCodeNodeN,
-  $isCodeNodeN,
-} from '../../../../lexical-code/src/cnNext';
-import {dispatchCodeToPlainTextCommand} from '../../../../lexical-code/src/codeHltrNext';
+  $createLinedCodeNode,
+  $isLinedCodeNode,
+  LinedCodeNode,
+} from '../../../../lexical-code/src/v2/LinedCodeNode';
 import useModal from '../../hooks/useModal';
 import catTypingGif from '../../images/cat-typing.gif';
 import {$createStickyNode} from '../../nodes/StickyNode';
@@ -102,6 +100,7 @@ const blockTypeToBlockName = {
   bullet: 'Bulleted List',
   check: 'Check List',
   code: 'Code Block',
+  ['code-line']: 'Code Block',
   h1: 'Heading 1',
   h2: 'Heading 2',
   h3: 'Heading 3',
@@ -252,34 +251,41 @@ function BlockFormatDropDown({
           $isRangeSelection(selection) ||
           DEPRECATED_$isGridSelection(selection)
         ) {
-          // if (selection.isCollapsed()) {
-          //   // $wrapNodes(selection, () => $createCodeNodeN());
-          //   $wrapNodes(selection, () )
-          //   $setBlocksType_experimental(selection, () => $createCodeNodeN());
-          // } else {
-          //   const codeNode = $createCodeNodeN();
-          //   const textContent = selection.getTextContent();
-          //   // add parent before text insert. avoids error
-          //   selection.insertNodes([codeNode]);
-          //   codeNode.insertRawText(textContent);
-          // }
+          const selectionNodes = selection.getNodes();
+          const isCollpased = selection.isCollapsed();
+          // use original offset for collapsed selections
+          const originalOffset = selection.anchor.offset;
 
-          if (selection.isCollapsed()) {
-            // const originalOffset = selection.anchor.offset;
-            // const createCodeLine = () => $createCodeLineNode();
-            // $wrapNodes(selection, createCodeLine, $createCodeNodeN());
-            // const codeLine = selection.anchor.getNode().getParent();
-            // const skipLineUpdate =
-            //   !$isCodeLineNodeN(codeLine) || codeLine.isLineCurrent();
-            // if (skipLineUpdate) return;
-            // codeLine.updateLineCode();
-            // codeLine.nextSelection(originalOffset);
-          } else {
-            const codeNode = $createCodeNodeN();
-            const textContent = selection.getTextContent();
-            // add parent before text insert. avoids error
-            selection.insertNodes([codeNode]);
-            codeNode.insertRawText(textContent);
+          const codeNode = $createLinedCodeNode();
+          const textContent = isCollpased
+            ? selectionNodes.reduce((fullText, _node) => {
+                const text = _node.getTextContent();
+
+                if (_node.getTextContent()) {
+                  fullText += text;
+                }
+
+                return fullText;
+              }, '')
+            : selection.getTextContent();
+
+          selection.insertNodes([codeNode]);
+          codeNode.insertRawText(textContent);
+
+          const firstLine = codeNode.getFirstChild();
+          const firstSelectionNode = selectionNodes[0];
+
+          // remove the paragraph we're replacing
+          if ($isTextNode(firstSelectionNode)) {
+            const paragraph = firstSelectionNode.getParent();
+
+            if ($isParagraphNode(paragraph)) {
+              paragraph.remove();
+            }
+          }
+
+          if ($isLinedCodeLineNode(firstLine)) {
+            firstLine.nextSelection(isCollpased ? originalOffset : 0);
           }
         }
       });
@@ -487,16 +493,19 @@ export default function ToolbarPlugin(): JSX.Element {
             : element.getListType();
           setBlockType(type);
         } else {
-          const type = $isHeadingNode(element)
+          const type = $isLinedCodeLineNode(element)
+            ? 'code'
+            : $isHeadingNode(element)
             ? element.getTag()
             : element.getType();
           if (type in blockTypeToBlockName) {
             setBlockType(type as keyof typeof blockTypeToBlockName);
           }
-          if ($isCodeNodeN(element)) {
-            // <-- HERE
-            const language =
-              element.getLanguage() as keyof typeof CODE_LANGUAGE_MAP;
+          // <-- HERE
+          if ($isLinedCodeNode(element.getParent())) {
+            const language = (
+              element.getParent() as LinedCodeNode
+            ).getLanguage() as keyof typeof CODE_LANGUAGE_MAP;
             setCodeLanguage(
               language ? CODE_LANGUAGE_MAP[language] || language : '',
             );
@@ -624,8 +633,11 @@ export default function ToolbarPlugin(): JSX.Element {
       activeEditor.update(() => {
         if (selectedElementKey !== null) {
           const node = $getNodeByKey(selectedElementKey);
-          if ($isCodeNodeN(node)) {
-            node.setLanguage(value);
+          if ($isLinedCodeLineNode(node)) {
+            const codeNode = node.getParent();
+            if ($isLinedCodeNode(codeNode)) {
+              codeNode.setLanguage(value);
+            }
           }
         }
       });

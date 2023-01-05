@@ -7,7 +7,6 @@
  */
 import './index.css';
 
-import {$isCodeNode} from '@lexical/code';
 import {$getNearestNodeFromDOMNode, LexicalEditor} from 'lexical';
 import {Options} from 'prettier';
 import * as babelParser from 'prettier/parser-babel';
@@ -17,6 +16,9 @@ import * as cssParser from 'prettier/parser-postcss';
 import {format} from 'prettier/standalone';
 import * as React from 'react';
 import {useState} from 'react';
+
+import {LinedCodeLineNode} from '../../../../../../lexical-code/src/v2/LinedCodeLineNode';
+import {$isLinedCodeNode} from '../../../../../../lexical-code/src/v2/LinedCodeNode';
 
 interface Props {
   lang: string;
@@ -74,7 +76,7 @@ export function PrettierButton({lang, editor, getCodeDOMNode}: Props) {
     editor.update(() => {
       const codeNode = $getNearestNodeFromDOMNode(codeDOMNode);
 
-      if ($isCodeNode(codeNode)) {
+      if ($isLinedCodeNode(codeNode)) {
         const content = codeNode.getTextContent();
         const options = getPrettierOptions(lang);
 
@@ -91,8 +93,13 @@ export function PrettierButton({lang, editor, getCodeDOMNode}: Props) {
           }
         }
         if (parsed !== '') {
-          const selection = codeNode.select(0);
-          selection.insertText(parsed);
+          const parsedTextByLine = parsed.split(/\n/);
+          codeNode.getChildren<LinedCodeLineNode>().forEach((line, index) => {
+            if (line.getTextContent() !== parsedTextByLine[index]) {
+              line.replaceLineCode(parsedTextByLine[index]);
+            }
+          });
+
           setSyntaxError('');
           setTipsVisible(false);
         }

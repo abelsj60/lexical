@@ -21,7 +21,7 @@ import {TablePlugin} from '@lexical/react/LexicalTablePlugin';
 import * as React from 'react';
 import {useState} from 'react';
 
-import CodeHighlightPluginN from '../../lexical-code/src/codeHltrNext';
+import LinedCodeHighlighterPlugin from '../../lexical-code/src/v2/LinedCodeHighlighter';
 import {createWebsocketProvider} from './collaboration';
 import {useSettings} from './context/SettingsContext';
 import {useSharedHistoryContext} from './context/SharedHistoryContext';
@@ -32,7 +32,6 @@ import AutoEmbedPlugin from './plugins/AutoEmbedPlugin';
 import AutoLinkPlugin from './plugins/AutoLinkPlugin';
 import ClickableLinkPlugin from './plugins/ClickableLinkPlugin';
 import CodeActionMenuPlugin from './plugins/CodeActionMenuPlugin';
-// import CodeHighlightPlugin from './plugins/CodeHighlightPlugin';
 import CollapsiblePlugin from './plugins/CollapsiblePlugin';
 import CommentPlugin from './plugins/CommentPlugin';
 import ComponentPickerPlugin from './plugins/ComponentPickerPlugin';
@@ -118,7 +117,6 @@ export default function Editor(): JSX.Element {
           !isRichText ? 'plain-text' : ''
         }`}>
         {isMaxLength && <MaxLengthPlugin maxLength={30} />}
-        {/* <CodeHighlightPluginN /> */}
         <DragDropPaste />
         <AutoFocusPlugin />
         <ClearEditorPlugin />
@@ -157,8 +155,7 @@ export default function Editor(): JSX.Element {
               ErrorBoundary={LexicalErrorBoundary}
             />
             <MarkdownShortcutPlugin />
-            <CodeHighlightPluginN />
-            {/* <CodeHighlightPlugin /> */}
+            <LinedCodeHighlighterPlugin />
             <ListPlugin />
             <CheckListPlugin />
             <ListMaxIndentLevelPlugin maxDepth={7} />

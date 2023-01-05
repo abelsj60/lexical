@@ -17,6 +17,7 @@ export default function PasteLogPlugin(): JSX.Element {
   const [lastClipboardData, setLastClipboardData] = useState<string | null>(
     null,
   );
+
   useEffect(() => {
     if (isActive) {
       return editor.registerCommand(
@@ -29,13 +30,17 @@ export default function PasteLogPlugin(): JSX.Element {
               allData.push(type.toUpperCase(), clipboardData.getData(type));
             });
           }
-          setLastClipboardData(allData.join('\n\n'));
+          // selection changes after custom paste logic can trigger this
+          // command, but with an undefined payload. let's ignore that
+          if (typeof clipboardData !== 'undefined') {
+            setLastClipboardData(allData.join('\n\n'));
+          }
           return false;
         },
         COMMAND_PRIORITY_NORMAL,
       );
     }
-  }, [editor, isActive]);
+  }, [editor, isActive, lastClipboardData]);
   return (
     <>
       <button

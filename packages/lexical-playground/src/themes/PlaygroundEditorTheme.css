@@ -101,17 +101,25 @@
   position: relative;
 }
 .PlaygroundEditorTheme__code:before {
-  content: attr(data-gutter);
-  position: absolute;
   background-color: #eee;
-  left: 0;
-  top: 0;
   border-right: 1px solid #ccc;
-  padding: 8px;
+  content: '';
+  height: 100%;
+  left: 0;
+  min-width: 41px;
+  position: absolute;
+  top: 0;
+}
+.code-line:hover {
+  background-color: #e7bfe1;
+}
+.code-line-number:before {
   color: #777;
-  white-space: pre-wrap;
+  content: attr(line-number);
+  left: 0px;
+  min-width: 33px;
+  position: absolute;
   text-align: right;
-  min-width: 25px;
 }
 .PlaygroundEditorTheme__table {
   border-collapse: collapse;

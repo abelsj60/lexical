@@ -9,7 +9,6 @@
 import type {ListType} from '@lexical/list';
 import type {HeadingTagType} from '@lexical/rich-text';
 
-import {$createCodeNode, $isCodeNode, CodeNode} from '@lexical/code';
 import {$createLinkNode, $isLinkNode, LinkNode} from '@lexical/link';
 import {
   $createListItemNode,
@@ -37,6 +36,12 @@ import {
   TextFormatType,
   TextNode,
 } from 'lexical';
+
+import {
+  $createLinedCodeNode,
+  $isLinedCodeNode,
+  LinedCodeNode,
+} from '../../lexical-code/src/v2/LinedCodeNode';
 
 export type Transformer =
   | ElementTransformer
@@ -212,9 +217,9 @@ export const QUOTE: ElementTransformer = {
 };
 
 export const CODE: ElementTransformer = {
-  dependencies: [CodeNode],
+  dependencies: [LinedCodeNode],
   export: (node: LexicalNode) => {
-    if (!$isCodeNode(node)) {
+    if (!$isLinedCodeNode(node)) {
       return null;
     }
     const textContent = node.getTextContent();
@@ -228,7 +233,9 @@ export const CODE: ElementTransformer = {
   },
   regExp: /^```(\w{1,10})?\s/,
   replace: createBlockNode((match) => {
-    return $createCodeNode(match ? match[1] : undefined);
+    return $createLinedCodeNode({
+      initialLanguage: match ? match[1] : undefined,
+    });
   }),
   type: 'element',
 };

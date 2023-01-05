@@ -422,7 +422,15 @@ function $appendNodesToJSON(
   // We need a way to create a clone of a Node in memory with it's own key, but
   // until then this hack will work for the selected text extract use case.
   if ($isTextNode(target)) {
-    (serializedNode as SerializedTextNode).text = target.__text;
+    // note: $appendNodesToHTML does not have identical logic to check for
+    // blank text nodes. it would require a <br> to be manually added in
+    // the function, which seems error prone. fortunately, identical
+    // results can be obtained via exportDOM
+    if (target.__text.length > 0) {
+      (serializedNode as SerializedTextNode).text = target.__text;
+    } else {
+      shouldInclude = false;
+    }
   }
 
   for (let i = 0; i < children.length; i++) {

@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import {$isCodeNode} from '@lexical/code';
 import {
   $getNearestNodeFromDOMNode,
   $getSelection,
@@ -15,6 +14,7 @@ import {
 import * as React from 'react';
 import {useState} from 'react';
 
+import {$isLinedCodeNode} from '../../../../../../lexical-code/src/v2/LinedCodeNode';
 import {useDebounce} from '../../utils';
 
 interface Props {
@@ -41,7 +41,7 @@ export function CopyButton({editor, getCodeDOMNode}: Props) {
     editor.update(() => {
       const codeNode = $getNearestNodeFromDOMNode(codeDOMNode);
 
-      if ($isCodeNode(codeNode)) {
+      if ($isLinedCodeNode(codeNode)) {
         content = codeNode.getTextContent();
       }
 

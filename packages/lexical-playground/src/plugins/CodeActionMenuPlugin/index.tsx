@@ -8,18 +8,17 @@
 
 import './index.css';
 
-import {
-  $isCodeNode,
-  CodeNode,
-  getLanguageFriendlyName,
-  normalizeCodeLang,
-} from '@lexical/code';
+import {getLanguageFriendlyName, normalizeCodeLang} from '@lexical/code';
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 import {$getNearestNodeFromDOMNode} from 'lexical';
 import {useEffect, useRef, useState} from 'react';
 import * as React from 'react';
 import {createPortal} from 'react-dom';
 
+import {
+  $isLinedCodeNode,
+  LinedCodeNode,
+} from '../../../../lexical-code/src/v2/LinedCodeNode';
 import {CopyButton} from './components/CopyButton';
 import {canBePrettier, PrettierButton} from './components/PrettierButton';
 import {useDebounce} from './utils';
@@ -67,13 +66,13 @@ function CodeActionMenuContainer({
 
       codeDOMNodeRef.current = codeDOMNode;
 
-      let codeNode: CodeNode | null = null;
+      let codeNode: LinedCodeNode | null = null;
       let _lang = '';
 
       editor.update(() => {
         const maybeCodeNode = $getNearestNodeFromDOMNode(codeDOMNode);
 
-        if ($isCodeNode(maybeCodeNode)) {
+        if ($isLinedCodeNode(maybeCodeNode)) {
           codeNode = maybeCodeNode;
           _lang = codeNode.getLanguage() || '';
         }
@@ -109,7 +108,7 @@ function CodeActionMenuContainer({
     };
   }, [shouldListenMouseMove, debouncedOnMouseMove]);
 
-  editor.registerMutationListener(CodeNode, (mutations) => {
+  editor.registerMutationListener(LinedCodeNode, (mutations) => {
     editor.getEditorState().read(() => {
       for (const [key, type] of mutations) {
         switch (type) {

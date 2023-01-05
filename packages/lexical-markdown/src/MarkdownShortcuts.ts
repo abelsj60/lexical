@@ -14,7 +14,6 @@ import type {
 } from '@lexical/markdown';
 import type {ElementNode, LexicalEditor, TextNode} from 'lexical';
 
-import {$isCodeNode} from '@lexical/code';
 import {
   $createRangeSelection,
   $getSelection,
@@ -26,6 +25,7 @@ import {
 } from 'lexical';
 import invariant from 'shared/invariant';
 
+import {$isLinedCodeNode} from '../../lexical-code/src/v2/LinedCodeNode';
 import {TRANSFORMERS} from '.';
 import {indexBy, PUNCTUATION_OR_SPACE, transformersByType} from './utils';
 
@@ -419,7 +419,7 @@ export function registerMarkdownShortcuts(
 
         const parentNode = anchorNode.getParent();
 
-        if (parentNode === null || $isCodeNode(parentNode)) {
+        if (parentNode === null || $isLinedCodeNode(parentNode)) {
           return;
         }
 
