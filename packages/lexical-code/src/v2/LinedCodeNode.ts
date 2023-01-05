@@ -81,7 +81,7 @@ export interface SerializableLinedCodeNodeOptions extends LinedCodeNodeOptions {
 
 type SerializedCodeNodeN = Spread<
   {
-    __options: SerializableLinedCodeNodeOptions;
+    options: SerializableLinedCodeNodeOptions;
     type: 'code-block';
     version: 1;
   },
@@ -244,12 +244,13 @@ export class LinedCodeNode extends ElementNode {
   }
 
   exportDOM(editor: LexicalEditor): DOMExportOutput {
+    const self = this.getLatest();
     const {element} = super.exportDOM(editor);
 
     return {
       after: (generatedElement: HTMLElement | null | undefined) => {
         if (generatedElement) {
-          if (this.getOptions().addPreOnExportDOM) {
+          if (self.getOptions().addPreOnExportDOM) {
             const preElement = document.createElement('pre');
             preElement.appendChild(generatedElement);
 
@@ -266,7 +267,7 @@ export class LinedCodeNode extends ElementNode {
   static importDOM() {
     // When dealing with code, we'll let the top-level conversion
     // function handle text. To make this work, we'll also use
-    // the 'after' callback to remove child text nodes.
+    // the 'forChild' callbacks to remove child text nodes.
     return {
       // Typically <pre> is used for code blocks, and <code> for inline code styles
       // but if it's a multi line <code> we'll create a block. Pass through to
@@ -326,7 +327,7 @@ export class LinedCodeNode extends ElementNode {
   }
 
   static importJSON(serializedNode: SerializedCodeNodeN): LinedCodeNode {
-    const node = $createLinedCodeNode(serializedNode.__options);
+    const node = $createLinedCodeNode(serializedNode.options);
     node.setFormat(serializedNode.format); // TODO: kill?
     node.setIndent(serializedNode.indent); // TODO: kill?
     node.setDirection(serializedNode.direction); // TODO: kill?
@@ -336,7 +337,7 @@ export class LinedCodeNode extends ElementNode {
   exportJSON(): SerializedCodeNodeN {
     return {
       ...super.exportJSON(),
-      __options: this.getSerializableOptions(),
+      options: this.getLatest().getSerializableOptions(),
       type: 'code-block',
       version: 1,
     };
@@ -373,7 +374,7 @@ export class LinedCodeNode extends ElementNode {
     const prevLine = lastLine.getPreviousSibling() as LinedCodeLineNode;
     const paragraph = $createParagraphNode();
 
-    paragraph.setDirection(this.getDirection());
+    paragraph.setDirection(self.getDirection());
 
     prevLine.remove();
     lastLine.remove();
@@ -468,7 +469,7 @@ export class LinedCodeNode extends ElementNode {
   collapseAtStart() {
     const self = this.getLatest();
 
-    if (!this.getOptions().isLockedBlock) {
+    if (!self.getOptions().isLockedBlock) {
       return self.convertToPlainText();
     }
 
@@ -479,6 +480,7 @@ export class LinedCodeNode extends ElementNode {
     dataTransfer: DataTransfer,
     editor: LexicalEditor,
   ): boolean {
+    const self = this.getLatest();
     const htmlString = dataTransfer.getData('text/html');
     const lexicalString = dataTransfer.getData('application/x-lexical-editor');
     const plainString = dataTransfer.getData('text/plain');
@@ -516,12 +518,12 @@ export class LinedCodeNode extends ElementNode {
             ? lexicalNodes[0].getChildren()
             : lexicalNodes;
 
-          const rawText = this.getRawText(
+          const rawText = self.getRawText(
             normalizedNodesFromPaste,
             textBeforeSplit,
             textAfterSplit,
           );
-          const newLines = this.insertRawText(
+          const newLines = self.insertRawText(
             rawText,
             originalLineIndex,
             (linesForUpdate as LinedCodeLineNode[]).length,
@@ -573,8 +575,7 @@ export class LinedCodeNode extends ElementNode {
 
   toggleLineNumbers() {
     // TOGGLE_LINE_NUMBERS_COMMAND
-    const self = this.getLatest();
-    const writable = self.getWritable();
+    const writable = this.getWritable();
 
     writable.__lineNumbers = !writable.__lineNumbers;
 
@@ -583,8 +584,7 @@ export class LinedCodeNode extends ElementNode {
 
   toggleTabs() {
     // TOGGLE_TABS_COMMAND
-    const self = this.getLatest();
-    const writable = self.getWritable();
+    const writable = this.getWritable();
 
     writable.__activateTabs = !writable.__activateTabs;
 
@@ -619,7 +619,7 @@ export class LinedCodeNode extends ElementNode {
 
   getSerializableOptions(): SerializableLinedCodeNodeOptions {
     return {
-      ...this.getOptions(),
+      ...this.getLatest().getOptions(),
       tokenizer: null,
     };
   }

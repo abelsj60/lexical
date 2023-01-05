@@ -105,8 +105,7 @@ export const mapToPrismLanguage = (
 
 type SerializedLinedCodeLineNode = Spread<
   {
-    lineClasses: string | undefined;
-    lineNumbers: boolean | undefined;
+    discreteLineClasses: string | undefined;
     type: 'code-line';
     version: 1;
   },
@@ -120,41 +119,43 @@ const TypelessParagraphNode: (new (key?: NodeKey) => ParagraphNode) &
 
 export class LinedCodeLineNode extends TypelessParagraphNode {
   /** @internal */
-  __lineClasses: string | undefined; // specific line classes
-  __lineNumbers: boolean;
+  __discreteLineClasses: string | undefined;
 
   static getType() {
     return 'code-line';
   }
 
   static clone(node: LinedCodeLineNode): LinedCodeLineNode {
-    return new LinedCodeLineNode(
-      node.__lineClasses,
-      node.__lineNumbers,
-      node.__key,
-    );
+    return new LinedCodeLineNode(node.__discreteLineClasses, node.__key);
   }
 
-  constructor(lineClasses?: string, lineNumbers?: boolean, key?: NodeKey) {
+  constructor(discreteLineClasses?: string, key?: NodeKey) {
     super(key);
-    this.__lineClasses = lineClasses; // for individual lines
-    this.__lineNumbers = lineNumbers || false;
+    // Generally speaking, you'll only set this in response to user interaction
+    // right now. As a result, you'll never set this during initialization.
+    // It is included and updated via .clone and .update to ensure
+    // changes survie reconciliation...
+    this.__discreteLineClasses = discreteLineClasses;
   }
 
-  getLineClasses() {
-    return this.getLatest().__lineClasses;
+  getDiscreteLineClasses() {
+    return this.getLatest().__discreteLineClasses;
   }
 
-  addLineClasses(lineClasses: string): boolean {
+  addDiscreteLineClasses(lineClasses: string): boolean {
+    const self = this.getLatest();
     const writable = this.getWritable();
+    const discreteLineClasses = self.getDiscreteLineClasses();
 
-    if (writable.__lineClasses) {
-      const currentLineClasses = writable.__lineClasses.split(' ');
-      const nextLineClasses = lineClasses.split(' ');
-      const nextClasses = nextLineClasses.reduce((list, nextLineClass) => {
-        const hasLineClass = currentLineClasses.some((currentLineClass) => {
-          return currentLineClass === nextLineClass;
-        });
+    if (discreteLineClasses) {
+      const splitDiscreteLineClasses = discreteLineClasses.split(' ');
+      const splitLineClasses = lineClasses.split(' ');
+      const nextClasses = splitLineClasses.reduce((list, nextLineClass) => {
+        const hasLineClass = splitDiscreteLineClasses.some(
+          (currentLineClass) => {
+            return currentLineClass === nextLineClass;
+          },
+        );
 
         if (!hasLineClass) {
           list.push(nextLineClass);
@@ -162,9 +163,9 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
         }
 
         return list;
-      }, currentLineClasses);
+      }, splitDiscreteLineClasses);
 
-      writable.__lineClasses = nextClasses.join(' ');
+      writable.__discreteLineClasses = nextClasses.join(' ');
 
       return true;
     }
@@ -172,13 +173,15 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     return false;
   }
 
-  removeLineClasses(lineClasses: string): boolean {
+  removeDiscreteLineClasses(lineClasses: string): boolean {
+    const self = this.getLatest();
     const writable = this.getWritable();
+    const discreteLineClasses = self.getDiscreteLineClasses();
 
-    if (writable.__lineClasses) {
-      const currentLineClasses = writable.__lineClasses.split(' ');
-      const nextLineClasses = lineClasses.split(' ');
-      const nextClasses = nextLineClasses.reduce((list, nextLineClass) => {
+    if (discreteLineClasses) {
+      const splitDiscreteLineClasses = discreteLineClasses.split(' ');
+      const splitLineClasses = lineClasses.split(' ');
+      const nextClasses = splitLineClasses.reduce((list, nextLineClass) => {
         // use toggle to remove line numbers, don't do it manually...
         if (nextLineClass === 'show-line-numbers') {
           return list;
@@ -195,9 +198,9 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
         }
 
         return list;
-      }, currentLineClasses);
+      }, splitDiscreteLineClasses);
 
-      writable.__lineClasses = nextClasses.join(' ');
+      writable.__discreteLineClasses = nextClasses.join(' ');
 
       return true;
     }
@@ -528,7 +531,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
 
         const hasChildren = newLine.getChildrenSize() > 0;
 
-        newLine.setDirection(this.getDirection());
+        newLine.setDirection(self.getDirection());
         newLine.nextSelection(hasChildren ? lineSpacers.length : 0);
 
         return newLine;
@@ -544,29 +547,31 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     const self = this.getLatest();
     const codeNode = self.getParent();
 
+    let lineClasses = self.getDiscreteLineClasses() || '';
+
     if ($isLinedCodeNode(codeNode)) {
       const {lineNumbers, theme} = codeNode.getOptions();
+      const direction = self.getDirection();
 
-      if (theme && theme.codeLine) {
-        const direction = self.getDirection();
-        const directionClass =
-          direction !== null ? ` ${config.theme[direction]}` : '';
-        const {classes, numberClasses} = theme.codeLine;
-        let lineClasses = `${classes}${directionClass}`;
-
-        if (lineNumbers) {
-          if (!numberClasses) {
-            console.error(
-              'Line numbers require a numberClass on the LinedCodeNode theme.',
-            );
-          }
-
-          lineClasses = `${classes} ${numberClasses}${directionClass}`;
-        }
-
-        addClassNamesToElement(dom, lineClasses);
+      if (theme && theme.codeLine && theme.codeLine.classes) {
+        lineClasses = `${lineClasses} ${theme.codeLine.classes}`;
       }
 
+      if (lineNumbers) {
+        if (theme && theme.codeLine && theme.codeLine.numberClasses) {
+          lineClasses = `${lineClasses} ${theme.codeLine.numberClasses}`;
+        } else {
+          console.error(
+            'Line numbers require a numberClass on the LinedCodeNode theme.',
+          );
+        }
+      }
+
+      if (direction !== null && config.theme[direction]) {
+        lineClasses = `${lineClasses} ${config.theme[direction]}`;
+      }
+
+      addClassNamesToElement(dom, lineClasses);
       dom.setAttribute('line-number', String(self.getLineNumber()));
     }
 
@@ -583,33 +588,39 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     const self = this.getLatest();
     const codeNode = self.getParent();
 
+    let lineClasses = self.getDiscreteLineClasses() || '';
+
     if ($isLinedCodeNode(codeNode)) {
-      const {lineNumbers, theme} = codeNode.getOptions();
+      const {theme} = codeNode.getOptions();
       const nextLineNumber = String(self.getLineNumber());
       const prevLineNumber = dom.getAttribute('line-number');
+      const prevClasses = dom.className;
+      const direction = self.getDirection();
 
-      if (theme && theme.codeLine) {
-        const prevClasses = dom.className;
-        const direction = self.getDirection();
-        const {classes, numberClasses} = theme.codeLine;
+      if (theme && theme.codeLine && theme.codeLine.classes) {
+        lineClasses = `${lineClasses} ${theme.codeLine.classes}`;
+      }
 
-        const lineClasses = classes ? classes : '';
-        const lineNumberClass = lineNumbers ? ` ${numberClasses}` : '';
-        const directionClass =
-          direction !== null ? ` ${config.theme[direction]}` : '';
+      // fyi, lineNumber should be true, too...
+      if (theme && theme.codeLine && theme.codeLine.numberClasses) {
+        lineClasses = `${lineClasses} ${theme.codeLine.numberClasses}`;
+      }
 
-        const nextClasses = `${lineClasses}${lineNumberClass}${directionClass}`;
-        const needsUpdate = nextClasses.split(' ').some((cls) => {
-          return !dom.classList.contains(cls);
-        });
+      if (direction !== null && config.theme[direction]) {
+        lineClasses = `${lineClasses} ${config.theme[direction]}`;
+      }
 
-        if (needsUpdate) {
-          if (prevClasses) {
-            removeClassNamesFromElement(dom, prevClasses);
-          }
+      const classesNeedUpdate = lineClasses.split(' ').some((cls) => {
+        return !dom.classList.contains(cls);
+      });
 
-          addClassNamesToElement(dom, nextClasses);
+      if (classesNeedUpdate) {
+        if (prevClasses) {
+          removeClassNamesFromElement(dom, prevClasses);
         }
+
+        // if you're here, lineClasses must exist
+        addClassNamesToElement(dom, lineClasses);
       }
 
       if (prevLineNumber !== nextLineNumber) {
@@ -637,8 +648,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
   exportJSON(): SerializedLinedCodeLineNode {
     return {
       ...super.exportJSON(),
-      lineClasses: this.getWritable().__lineClasses,
-      lineNumbers: this.getWritable().__lineNumbers,
+      discreteLineClasses: this.getLatest().getDiscreteLineClasses(),
       type: 'code-line',
       version: 1,
     };
@@ -649,8 +659,8 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
   }
 }
 
-export function $createLinedCodeLineNode() {
-  return new LinedCodeLineNode();
+export function $createLinedCodeLineNode(discreteLineClasses?: string) {
+  return new LinedCodeLineNode(discreteLineClasses);
 }
 
 export function $isLinedCodeLineNode(

@@ -24,7 +24,7 @@ function setOption(
   return hasInitialValue ? initVal : fallback;
 }
 
-export function swapCodeNodeForFullyConfiguredVersion(
+export function swapLinedCodeNodeForFullyConfiguredVersion(
   defaultOptions?: LinedCodeNodeOptions,
 ) {
   // You may be wondering why not .replace the unconfigured CodeNode via the 'created'
@@ -77,7 +77,7 @@ export function swapCodeNodeForFullyConfiguredVersion(
   };
 }
 
-function swapParagraphForCodeLine() {
+function swapParagraphForLinedCodeLine() {
   return {
     replace: ParagraphNode,
     with: (node: ParagraphNode) => {
@@ -94,7 +94,7 @@ function swapParagraphForCodeLine() {
   };
 }
 
-function swapTextForCodeHighlight() {
+function swapTextForLinedCodeHighlight() {
   return {
     replace: TextNode,
     with: (node: TextNode) => {
@@ -112,8 +112,8 @@ export function getLinedCodeNodes(defaultOptions?: LinedCodeNodeOptions) {
     LinedCodeHighlightNode,
     LinedCodeLineNode,
     LinedCodeNode,
-    swapCodeNodeForFullyConfiguredVersion(defaultOptions),
-    swapParagraphForCodeLine(),
-    swapTextForCodeHighlight(),
+    swapLinedCodeNodeForFullyConfiguredVersion(defaultOptions),
+    swapParagraphForLinedCodeLine(),
+    swapTextForLinedCodeHighlight(),
   ];
 }

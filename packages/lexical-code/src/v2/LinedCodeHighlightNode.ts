@@ -61,6 +61,7 @@ export class LinedCodeHighlightNode extends TextNode {
   }
 
   createDOM(config: EditorConfig): HTMLElement {
+    const self = this.getLatest();
     const codeNode = getLinedCodeNode();
     let highlightTheme = config.theme;
 
@@ -75,7 +76,7 @@ export class LinedCodeHighlightNode extends TextNode {
     const element = super.createDOM(config);
     const className = getHighlightThemeClass(
       highlightTheme,
-      this.__highlightType,
+      self.__highlightType,
     );
 
     addClassNamesToElement(element, className);
@@ -90,6 +91,7 @@ export class LinedCodeHighlightNode extends TextNode {
   ): boolean {
     const update = super.updateDOM(prevNode, dom, config);
 
+    const self = this.getLatest();
     const codeNode = getLinedCodeNode();
     let highlightTheme = config.theme;
 
@@ -107,7 +109,7 @@ export class LinedCodeHighlightNode extends TextNode {
     );
     const nextClassName = getHighlightThemeClass(
       highlightTheme,
-      this.__highlightType,
+      self.__highlightType,
     );
 
     if (prevClassName !== nextClassName) {
@@ -179,24 +181,6 @@ export class LinedCodeHighlightNode extends TextNode {
     return this;
   }
 }
-
-// function convertTextDOMNode(
-//   domNode: Node,
-//   _parent?: Node,
-//   preformatted?: boolean,
-// ): DOMConversionOutput {
-//   const textContent = domNode.textContent;
-//   console.log('THERE', textContent)
-
-//   if (!textContent) {
-//     const line = $createLinedCodeLineNode();
-//     line.append($createLineBreakNode());
-//     return {node: line};
-//   }
-
-//   console.log('THERE', textContent)
-//   return {node: $createLinedCodeHighlightNode(textContent)};
-// }
 
 export function $createLinedCodeHighlightNode(
   text: string,
