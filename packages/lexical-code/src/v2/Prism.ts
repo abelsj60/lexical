@@ -1,5 +1,18 @@
 /* eslint-disable header/header */
+// eslint-disable-next-line simple-import-sort/imports
 import * as Prism from 'prismjs';
+
+import 'prismjs/components/prism-c';
+import 'prismjs/components/prism-clike';
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-markdown';
+import 'prismjs/components/prism-markup';
+import 'prismjs/components/prism-objectivec';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-rust';
+import 'prismjs/components/prism-sql';
+import 'prismjs/components/prism-swift';
 
 export const DEFAULT_CODE_LANGUAGE = 'javascript';
 
@@ -21,7 +34,7 @@ export interface Tokenizer {
 
 export const PrismTokenizer: Tokenizer = {
   tokenize(text: string, language: string): (string | Token)[] {
-    return Prism.tokenize(text, language as Prism.Grammar);
+    return Prism.tokenize(text, Prism.languages[language]);
   },
 };
 

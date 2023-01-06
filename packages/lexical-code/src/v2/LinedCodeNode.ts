@@ -32,18 +32,11 @@ import {
   LinedCodeLineNode,
 } from './LinedCodeLineNode';
 
-import 'prismjs/components/prism-c';
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-css';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-markdown';
-import 'prismjs/components/prism-markup';
-import 'prismjs/components/prism-objectivec';
-import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-rust';
-import 'prismjs/components/prism-sql';
-import 'prismjs/components/prism-swift';
-import {getLinesFromSelection} from './utils';
+import {
+  getLinesFromSelection,
+  getNormalizedTokens,
+  addOptionOrNull,
+} from './utils';
 import {
   convertDivElement,
   convertPreElement,
@@ -51,7 +44,12 @@ import {
   isCodeElement,
   isGitHubCodeTable,
 } from './DomDecoders';
-import {mapToPrismLanguage, Tokenizer} from './Prism';
+
+import {
+  $createLinedCodeHighlightNode,
+  LinedCodeHighlightNode,
+} from './LinedCodeHighlightNode';
+import {mapToPrismLanguage, NormalizedToken, Token, Tokenizer} from './Prism';
 
 export type Unserializeable = null;
 export interface LinedCodeNodeOptions {
@@ -74,13 +72,13 @@ export interface LinedCodeNodeTheme {
   codeHighlight?: Record<string, EditorThemeClassName>;
 }
 
-export interface SerializableLinedCodeNodeOptions extends LinedCodeNodeOptions {
+export interface CodeNodeOptionsSerializable extends LinedCodeNodeOptions {
   tokenizer: Unserializeable;
 }
 
 type SerializedCodeNodeN = Spread<
   {
-    options: SerializableLinedCodeNodeOptions;
+    options: CodeNodeOptionsSerializable;
     type: 'code-block';
     version: 1;
   },
@@ -91,7 +89,6 @@ const LANGUAGE_DATA_ATTRIBUTE = 'data-highlight-language';
 
 // review methods and move between cn and cln
 // test commands?
-// utils
 
 export class LinedCodeNode extends ElementNode {
   /** @internal */
@@ -107,8 +104,6 @@ export class LinedCodeNode extends ElementNode {
   /** @internal */
   __lineNumbers: boolean | null;
   /** @internal */
-  __options: LinedCodeNodeOptions;
-  /** @internal */
   __theme: LinedCodeNodeTheme | null;
   /** @internal */
   __tokenizer: Tokenizer | null;
@@ -118,64 +113,44 @@ export class LinedCodeNode extends ElementNode {
   }
 
   static clone(node: LinedCodeNode): LinedCodeNode {
-    // must access via getOptions method to prevent staleness!
-    return new LinedCodeNode(node.getOptions(), node.__key);
+    return new LinedCodeNode(node.getSettingsForCloning(), node.__key);
   }
 
   constructor(options?: LinedCodeNodeOptions, key?: NodeKey) {
-    const activateTabs =
-      options && typeof options.activateTabs !== 'undefined'
-        ? options.activateTabs
-        : null;
-    const addPreOnExportDOM =
-      options && typeof options.addPreOnExportDOM !== 'undefined'
-        ? options.addPreOnExportDOM
-        : null;
-    const defaultLanguage =
-      options && typeof options.defaultLanguage !== 'undefined'
-        ? options.defaultLanguage
-        : null;
-    const initialLanguage =
-      (options &&
-        options.initialLanguage &&
-        mapToPrismLanguage(options.initialLanguage)) ||
-      null;
-    const isLockedBlock =
-      options && typeof options.isLockedBlock !== 'undefined'
-        ? options.isLockedBlock
-        : null;
-    const lineNumbers =
-      options && typeof options.lineNumbers !== 'undefined'
-        ? options.lineNumbers
-        : null;
-    const theme =
-      options && typeof options.theme !== 'undefined' ? options.theme : null;
-    const tokenizer =
-      options && typeof options.tokenizer !== 'undefined'
-        ? options.tokenizer
-        : null;
+    const {
+      activateTabs,
+      addPreOnExportDOM,
+      defaultLanguage,
+      isLockedBlock,
+      initialLanguage,
+      lineNumbers,
+      theme,
+      tokenizer,
+    } = options || {};
 
     super(key);
 
-    // config values
-    this.__activateTabs = activateTabs;
-    this.__addPreOnExportDOM = addPreOnExportDOM;
-    this.__defaultLanguage = defaultLanguage;
-    this.__isLockedBlock = isLockedBlock;
-    this.__language = initialLanguage;
-    this.__lineNumbers = lineNumbers;
-    this.__theme = theme;
-    this.__tokenizer = tokenizer; // set via replacement/defaultVals
+    // LINED-CODE-NODE SETTINGS
+    //  First invocation — temporary w/null for falsies.
+    //  Second invocation — real final values (set by replacement API).
 
-    // .__options:
-    // 1. We'll use a getter to build an options object on the fly.
-    // 2. We build a special serializable version for exportJSON
-    // It sets unserializable props to null.
-    // 3. Be careful about accessing .__options direclty. It's often
-    // stale, but it makes cloning/import easy-peasy. Generally,
-    // get it through getOptions().
+    //  Replacement API priority order:
+    //    1. first-pass values, AKA 'initalValues'
+    //    2. vals passed to replacement API, AKA, 'defaultValues'
+    //    3. fallback values baked directly into the replacement API function
 
-    this.__options = this.getLatest().getOptions();
+    this.__activateTabs = addOptionOrNull(activateTabs);
+    this.__addPreOnExportDOM = addOptionOrNull(addPreOnExportDOM);
+    this.__defaultLanguage = addOptionOrNull(
+      mapToPrismLanguage(defaultLanguage || undefined),
+    );
+    this.__isLockedBlock = addOptionOrNull(isLockedBlock);
+    this.__language = addOptionOrNull(
+      mapToPrismLanguage(initialLanguage || undefined),
+    );
+    this.__lineNumbers = addOptionOrNull(lineNumbers);
+    this.__theme = addOptionOrNull(theme);
+    this.__tokenizer = addOptionOrNull(tokenizer);
   }
 
   // View
@@ -183,7 +158,7 @@ export class LinedCodeNode extends ElementNode {
   createDOM(config: EditorConfig): HTMLElement {
     const self = this.getLatest();
     const element = document.createElement('code');
-    const {theme} = self.getOptions();
+    const {theme} = self.getSettings();
     let codeBlockClasses = config.theme.code;
 
     if (theme && theme.code) {
@@ -209,7 +184,7 @@ export class LinedCodeNode extends ElementNode {
     const self = this.getLatest();
     const language = self.__language;
     const prevLanguage = prevNode.__language;
-    const {theme} = self.getOptions();
+    const {theme} = self.getSettings();
     let codeBlockClasses = config.theme.code;
 
     if (theme && theme.code) {
@@ -249,7 +224,7 @@ export class LinedCodeNode extends ElementNode {
     return {
       after: (generatedElement: HTMLElement | null | undefined) => {
         if (generatedElement) {
-          if (self.getOptions().addPreOnExportDOM) {
+          if (self.getSettings().addPreOnExportDOM) {
             const preElement = document.createElement('pre');
             preElement.appendChild(generatedElement);
 
@@ -267,6 +242,7 @@ export class LinedCodeNode extends ElementNode {
     // When dealing with code, we'll let the top-level conversion
     // function handle text. To make this work, we'll also use
     // the 'forChild' callbacks to remove child text nodes.
+
     return {
       // Typically <pre> is used for code blocks, and <code> for inline code styles
       // but if it's a multi line <code> we'll create a block. Pass through to
@@ -336,7 +312,7 @@ export class LinedCodeNode extends ElementNode {
   exportJSON(): SerializedCodeNodeN {
     return {
       ...super.exportJSON(),
-      options: this.getLatest().getSerializableOptions(),
+      options: this.getLatest().getSettingsForExportJSON(),
       type: 'code-block',
       version: 1,
     };
@@ -345,7 +321,7 @@ export class LinedCodeNode extends ElementNode {
   hasBreakOutLine(): boolean {
     const self = this.getLatest();
 
-    if (!self.getOptions().isLockedBlock) {
+    if (!self.getSettings().isLockedBlock) {
       const selection = $getSelection();
 
       if ($isRangeSelection(selection)) {
@@ -396,6 +372,78 @@ export class LinedCodeNode extends ElementNode {
     return this;
   }
 
+  replaceLineCode(text: string, line: LinedCodeLineNode): LinedCodeLineNode {
+    const self = this.getLatest();
+    const code = self.getHighlightNodes(text);
+
+    line.splice(0, line.getChildrenSize(), code);
+
+    return line;
+  }
+
+  updateLineCode(line: LinedCodeLineNode): boolean {
+    // call .isCurrent() first!
+    const self = this.getLatest();
+    const text = line.getTextContent();
+
+    if (text.length > 0) {
+      // lines are small, we'll just replace our
+      // nodes for now. can optimize later.
+      self.replaceLineCode(text, line);
+      return true;
+    }
+
+    return false;
+  }
+
+  tokenizePlainText(plainText: string): (string | Token)[] {
+    const self = this.getLatest();
+    const {language, tokenizer} = self.getSettings();
+    const tokenize = (tokenizer as Tokenizer).tokenize;
+
+    return tokenize(plainText, language as string);
+  }
+
+  getNormalizedTokens(plainText: string): NormalizedToken[] {
+    // this allows for diffing w/o wasting node keys
+    if (plainText.length === 0) return [];
+
+    const self = this.getLatest();
+    const tokens = self.tokenizePlainText(plainText);
+
+    return getNormalizedTokens(tokens);
+  }
+
+  getHighlightNodes(text: string): LinedCodeHighlightNode[] {
+    if (text.length === 0) return [];
+
+    const self = this.getLatest();
+    const normalizedTokens = self.getNormalizedTokens(text);
+
+    return normalizedTokens.map((token) => {
+      return $createLinedCodeHighlightNode(token.content, token.type);
+    });
+  }
+
+  isLineCurrent(line: LinedCodeLineNode): boolean {
+    const self = this.getLatest();
+    const text = line.getTextContent();
+    const normalizedTokens = self.getNormalizedTokens(text);
+    const children = line.getChildren() as LinedCodeHighlightNode[];
+
+    // why? empty text strings can cause length mismatch on paste
+    if (children.length !== normalizedTokens.length) return false;
+
+    return children.every((child, idx) => {
+      const expected = normalizedTokens[idx];
+
+      return (
+        child.__highlightType === expected.type &&
+        child.__text === expected.content
+      );
+    });
+  }
+
   insertRawText(
     rawText: string,
     startIndex?: number,
@@ -407,7 +455,7 @@ export class LinedCodeNode extends ElementNode {
     const delCount = deleteCount || self.getChildrenSize();
     const codeLines = rawText.split(/\r?\n/g).reduce((lines, line) => {
       const newLine = $createLinedCodeLineNode();
-      const code = newLine.getHighlightNodes(line);
+      const code = self.getHighlightNodes(line);
 
       newLine.append(...code);
       lines.push(newLine);
@@ -468,7 +516,7 @@ export class LinedCodeNode extends ElementNode {
   collapseAtStart() {
     const self = this.getLatest();
 
-    if (!self.getOptions().isLockedBlock) {
+    if (!self.getSettings().isLockedBlock) {
       return self.convertToPlainText();
     }
 
@@ -601,24 +649,39 @@ export class LinedCodeNode extends ElementNode {
     return writable.__theme;
   }
 
-  getOptions(): LinedCodeNodeOptions {
+  getSettings(): Omit<LinedCodeNodeOptions, 'initialLanguage'> & {
+    language: string | null;
+  } {
     const self = this.getLatest();
 
     return {
       activateTabs: self.__activateTabs,
       addPreOnExportDOM: self.__addPreOnExportDOM,
       defaultLanguage: self.__defaultLanguage,
-      initialLanguage: self.__language,
       isLockedBlock: self.__isLockedBlock,
+      language: self.__language,
       lineNumbers: self.__lineNumbers,
       theme: self.__theme,
-      tokenizer: self.__tokenizer, // unserializable
+      tokenizer: self.__tokenizer,
     };
   }
 
-  getSerializableOptions(): SerializableLinedCodeNodeOptions {
+  getSettingsForCloning(): LinedCodeNodeOptions {
+    const self = this.getLatest();
+    const {language, ...rest} = self.getSettings();
+
     return {
-      ...this.getLatest().getOptions(),
+      ...rest,
+      initialLanguage: language,
+    };
+  }
+
+  getSettingsForExportJSON(): CodeNodeOptionsSerializable {
+    const self = this.getLatest();
+    const settings = self.getSettingsForCloning();
+
+    return {
+      ...settings,
       tokenizer: null,
     };
   }
@@ -665,7 +728,7 @@ export class LinedCodeNode extends ElementNode {
 
     self.getChildren().forEach((line) => {
       if ($isLinedCodeLineNode(line)) {
-        line.updateLineCode();
+        self.updateLineCode(line);
 
         if (!isUpdated) {
           isUpdated = true;

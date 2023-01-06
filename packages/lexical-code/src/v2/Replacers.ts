@@ -1,24 +1,17 @@
 /* eslint-disable header/header */
 // eslint-disable-next-line simple-import-sort/imports
 import {ParagraphNode, TextNode} from 'lexical';
+import {PrismTokenizer} from '..';
 import {LinedCodeHighlightNode} from './LinedCodeHighlightNode';
 
-import {DEFAULT_CODE_LANGUAGE, PrismTokenizer, Tokenizer} from './Prism';
 import {LinedCodeLineNode} from './LinedCodeLineNode';
 import {
   $isLinedCodeNode,
   LinedCodeNode,
   LinedCodeNodeOptions,
 } from './LinedCodeNode';
-import {getLinedCodeNode} from './utils';
-
-function setOption(
-  initVal: boolean | string | object | undefined | null,
-  fallback: boolean | string | object | null | Tokenizer,
-) {
-  const hasInitialValue = initVal !== null && typeof initVal !== 'undefined';
-  return hasInitialValue ? initVal : fallback;
-}
+import {DEFAULT_CODE_LANGUAGE, mapToPrismLanguage} from './Prism';
+import {getLinedCodeNode, addOptionOrDefault} from './utils';
 
 export function swapLinedCodeNodeForFullyConfiguredVersion(
   defaultOptions?: LinedCodeNodeOptions,
@@ -34,39 +27,41 @@ export function swapLinedCodeNodeForFullyConfiguredVersion(
   return {
     replace: LinedCodeNode,
     with: (node: LinedCodeNode) => {
-      const initialOptions = node.getOptions();
       const defaults = defaultOptions || {};
+      const settings = node.getSettings();
       const finalOptions = {
-        activateTabs: setOption(
-          initialOptions.activateTabs,
+        activateTabs: addOptionOrDefault(
+          settings.activateTabs,
           defaults.activateTabs || false,
         ),
-        addPreOnExportDOM: setOption(
-          initialOptions.addPreOnExportDOM,
+        addPreOnExportDOM: addOptionOrDefault(
+          settings.addPreOnExportDOM,
           defaults.addPreOnExportDOM || false,
         ),
-        defaultLanguage: setOption(
-          initialOptions.defaultLanguage,
-          defaults.defaultLanguage || DEFAULT_CODE_LANGUAGE,
+        defaultLanguage: mapToPrismLanguage(
+          settings.defaultLanguage ||
+            defaults.defaultLanguage ||
+            DEFAULT_CODE_LANGUAGE,
         ),
-        initialLanguage: setOption(
-          initialOptions.initialLanguage,
-          defaults.defaultLanguage || DEFAULT_CODE_LANGUAGE,
+        initialLanguage: mapToPrismLanguage(
+          settings.language ||
+            defaults.initialLanguage ||
+            DEFAULT_CODE_LANGUAGE,
         ),
-        isLockedBlock: setOption(
-          initialOptions.isLockedBlock,
+        isLockedBlock: addOptionOrDefault(
+          settings.isLockedBlock,
           defaults.isLockedBlock || false,
         ),
-        lineNumbers: setOption(
-          initialOptions.lineNumbers,
+        lineNumbers: addOptionOrDefault(
+          settings.lineNumbers,
           defaults.lineNumbers || true,
         ),
-        theme: setOption(initialOptions.theme, defaults.theme || {}),
-        tokenizer: setOption(
-          initialOptions.tokenizer,
+        theme: addOptionOrDefault(settings.theme, defaults.theme || {}),
+        tokenizer: addOptionOrDefault(
+          settings.tokenizer,
           defaults.tokenizer || PrismTokenizer,
         ),
-      } as Required<LinedCodeNodeOptions>;
+      };
 
       return new LinedCodeNode(finalOptions);
     },

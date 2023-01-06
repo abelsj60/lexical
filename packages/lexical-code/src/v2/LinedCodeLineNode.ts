@@ -12,24 +12,13 @@ import {
   SerializedParagraphNode,
   Spread,
 } from 'lexical';
-import * as Prism from 'prismjs';
 
 import {
   addClassNamesToElement,
   removeClassNamesFromElement,
 } from '../../../lexical-utils/src';
-import {
-  $createLinedCodeHighlightNode,
-  LinedCodeHighlightNode,
-} from './LinedCodeHighlightNode';
-import {$isLinedCodeNode} from './LinedCodeNode';
-import {
-  DEFAULT_CODE_LANGUAGE,
-  NormalizedToken,
-  PrismTokenizer,
-  Token,
-} from './Prism';
-import {getLinesFromSelection, getNormalizedTokens} from './utils';
+import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
+import {getLinesFromSelection} from './utils';
 
 type SerializedLinedCodeLineNode = Spread<
   {
@@ -146,51 +135,6 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     return [textBeforeSplit, textAfterSplit];
   }
 
-  tokenizePlainText(plainText: string): (string | Token)[] {
-    const self = this.getLatest();
-    const codeNode = self.getParent();
-
-    let language = Prism.languages[DEFAULT_CODE_LANGUAGE];
-    let tokenize = PrismTokenizer.tokenize;
-
-    if ($isLinedCodeNode(codeNode)) {
-      const config = codeNode.getOptions();
-      const configLanguage = codeNode.getLanguage() || config.defaultLanguage;
-      const configTokenizer = config.tokenizer;
-
-      if (configLanguage) {
-        language = Prism.languages[configLanguage];
-      }
-
-      if (configTokenizer) {
-        tokenize = configTokenizer.tokenize;
-      }
-    }
-
-    return tokenize(plainText, language as string);
-  }
-
-  getNormalizedTokens(plainText: string): NormalizedToken[] {
-    // this allows for diffing w/o wasting node keys
-    if (plainText.length === 0) return [];
-
-    const self = this.getLatest();
-    const tokens = self.tokenizePlainText(plainText);
-
-    return getNormalizedTokens(tokens);
-  }
-
-  getHighlightNodes(text: string): LinedCodeHighlightNode[] {
-    if (text.length === 0) return [];
-
-    const self = this.getLatest();
-    const normalizedTokens = self.getNormalizedTokens(text);
-
-    return normalizedTokens.map((token) => {
-      return $createLinedCodeHighlightNode(token.content, token.type);
-    });
-  }
-
   nextSelection(aOffset: number, bOffset?: number) {
     const self = this.getLatest();
     const selectStart = aOffset === 0 || self.isEmptyLine();
@@ -225,47 +169,6 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
   //     }
   //   }
   // }
-
-  isLineCurrent(): boolean {
-    const self = this.getLatest();
-    const text = self.getTextContent();
-    const children = self.getChildren<LinedCodeHighlightNode>();
-    const normalizedTokens = self.getNormalizedTokens(text);
-
-    // why? empty text strings can cause length mismatch on paste
-    if (children.length !== normalizedTokens.length) return false;
-
-    return children.every((child, idx) => {
-      const expected = normalizedTokens[idx];
-
-      return (
-        child.__highlightType === expected.type &&
-        child.__text === expected.content
-      );
-    });
-  }
-
-  updateLineCode(): boolean {
-    // call .isCurrent() first!
-    const self = this.getLatest();
-    const text = self.getTextContent();
-
-    if (text.length > 0) {
-      self.replaceLineCode(text);
-      return true;
-    }
-
-    return false;
-  }
-
-  replaceLineCode(text: string): LinedCodeHighlightNode[] {
-    const self = this.getLatest();
-    const code = self.getHighlightNodes(text);
-
-    self.splice(0, self.getChildrenSize(), code);
-
-    return self.getChildren();
-  }
 
   getLineOffset(point: Point) {
     const pointNode = point.getNode();
@@ -397,7 +300,6 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     });
   }
 
-  // TODO: still needed?
   collapseAtStart(): boolean {
     const self = this.getLatest();
     const codeNode = self.getParent();
@@ -412,11 +314,9 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
   insertNewAfter(): LinedCodeLineNode | ParagraphNode {
     const self = this.getLatest();
 
-    const codeNode = self.getParent();
-    const hasBreakOutLine =
-      $isLinedCodeNode(codeNode) && codeNode.hasBreakOutLine();
+    const codeNode = self.getParent() as LinedCodeNode;
 
-    if (hasBreakOutLine) {
+    if (codeNode.hasBreakOutLine()) {
       return codeNode.insertNewAfter();
     }
 
@@ -449,12 +349,12 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
         const afterSplitAndSpacers = `${lineSpacers}${
           shouldTrimEnd ? afterSplit.trimEnd() : afterSplit
         }`;
-        const code = line.getHighlightNodes(afterSplitAndSpacers);
+        const code = codeNode.getHighlightNodes(afterSplitAndSpacers);
 
         newLine.append(...code);
 
         line.insertAfter(newLine);
-        line.replaceLineCode(beforeSplit);
+        codeNode.replaceLineCode(beforeSplit, line);
         linesForUpdate.slice(1).forEach((ln) => ln.remove());
 
         const hasChildren = newLine.getChildrenSize() > 0;
@@ -478,7 +378,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     let lineClasses = self.getDiscreteLineClasses() || '';
 
     if ($isLinedCodeNode(codeNode)) {
-      const {lineNumbers, theme} = codeNode.getOptions();
+      const {lineNumbers, theme} = codeNode.getSettings();
       const direction = self.getDirection();
 
       if (theme && theme.codeLine && theme.codeLine.classes) {
@@ -519,7 +419,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     let lineClasses = self.getDiscreteLineClasses() || '';
 
     if ($isLinedCodeNode(codeNode)) {
-      const {theme} = codeNode.getOptions();
+      const {theme} = codeNode.getSettings();
       const nextLineNumber = String(self.getLineNumber());
       const prevLineNumber = dom.getAttribute('line-number');
       const prevClasses = dom.className;

@@ -57,13 +57,17 @@ function updateHighlightsWhenTyping(highlightNode: LinedCodeHighlightNode) {
     const line = highlightNode.getParent();
 
     if ($isLinedCodeLineNode(line)) {
-      if (!line.isLineCurrent()) {
-        const {topPoint} = getLinesFromSelection(selection);
-        // get lineOffset before update. it may change...
-        const lineOffset = line.getLineOffset(topPoint);
+      const codeNode = line.getParent();
 
-        if (line.updateLineCode()) {
-          line.nextSelection(lineOffset);
+      if ($isLinedCodeNode(codeNode)) {
+        if (!codeNode.isLineCurrent(line)) {
+          const {topPoint} = getLinesFromSelection(selection);
+          // get lineOffset before update. it may change...
+          const lineOffset = line.getLineOffset(topPoint);
+
+          if (codeNode.updateLineCode(line)) {
+            line.nextSelection(lineOffset);
+          }
         }
       }
     }
@@ -198,7 +202,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
         const codeNode = getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
-          if (codeNode.getOptions().activateTabs) {
+          if (codeNode.getSettings().activateTabs) {
             const selection = $getSelection();
 
             if ($isRangeSelection(selection)) {

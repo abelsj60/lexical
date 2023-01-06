@@ -1,21 +1,11 @@
 /* eslint-disable header/header */
 // eslint-disable-next-line simple-import-sort/imports
-import {
-  $getSelection,
-  $isRangeSelection,
-  LexicalNode,
-  Point,
-  RangeSelection,
-} from 'lexical';
+import {$getSelection, $isRangeSelection, Point, RangeSelection} from 'lexical';
 import {$isLinedCodeHighlightNode} from './LinedCodeHighlightNode';
 
-import {
-  $isLinedCodeLineNode,
-  LinedCodeLineNode,
-  NormalizedToken,
-  Token,
-} from './LinedCodeLineNode';
+import {$isLinedCodeLineNode, LinedCodeLineNode} from './LinedCodeLineNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
+import {NormalizedToken, Token} from './Prism';
 
 type BorderPoints = {
   bottomPoint: Point;
@@ -67,15 +57,7 @@ function getLineFromPoint(point: Point): LinedCodeLineNode | null {
   if ($isLinedCodeHighlightNode(pointNode)) {
     return pointNode.getParent();
   } else if ($isLinedCodeLineNode(pointNode)) {
-    const isCodeLineNodeAssertion = (
-      node: LexicalNode,
-    ): node is LinedCodeLineNode => {
-      return 'getHighlightNodes' in node;
-    };
-
-    if (isCodeLineNodeAssertion(pointNode)) {
-      return pointNode;
-    }
+    return pointNode;
   }
 
   return null;
@@ -150,18 +132,12 @@ export function getLinedCodeNode(): LinedCodeNode | null {
   return null;
 }
 
-// export function getCodeNode(): LinedCodeNode | null {
-//   const selection = $getSelection();
+export function addOptionOrNull<T>(option: T | null) {
+  const hasOption = option !== null && typeof option !== 'undefined';
+  return hasOption ? option : null;
+}
 
-//   if ($isRangeSelection(selection)) {
-//     const anchor = selection.anchor;
-//     const anchorNode = anchor.getNode().getLatest();
-//     const codeNode = $getNearestRootOrShadowRoot(anchorNode);
-
-//     if ($isLinedCodeNode(codeNode)) {
-//       return codeNode;
-//     }
-//   }
-
-//   return null;
-// }
+export function addOptionOrDefault<T1, T2>(option: T1, defaultValue: T2) {
+  const finalValue = addOptionOrNull(option);
+  return finalValue !== null ? finalValue : defaultValue;
+}

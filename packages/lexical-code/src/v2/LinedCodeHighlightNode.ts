@@ -66,7 +66,7 @@ export class LinedCodeHighlightNode extends TextNode {
     let highlightTheme = config.theme;
 
     if ($isLinedCodeNode(codeNode)) {
-      const {theme} = codeNode.getOptions();
+      const {theme} = codeNode.getSettings();
 
       if (theme && theme.codeHighlight) {
         highlightTheme = theme.codeHighlight;
@@ -96,7 +96,7 @@ export class LinedCodeHighlightNode extends TextNode {
     let highlightTheme = config.theme;
 
     if ($isLinedCodeNode(codeNode)) {
-      const {theme} = codeNode.getOptions();
+      const {theme} = codeNode.getSettings();
 
       if (theme && theme.codeHighlight) {
         highlightTheme = theme.codeHighlight;

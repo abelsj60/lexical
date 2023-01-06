@@ -11,7 +11,7 @@ import {
 } from 'lexical';
 import {$isLinedCodeHighlightNode} from './LinedCodeHighlightNode';
 import {$isLinedCodeLineNode, LinedCodeLineNode} from './LinedCodeLineNode';
-import {$isLinedCodeNode} from './LinedCodeNode';
+import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
 import {getLinedCodeNode, getLinesFromSelection} from './utils';
 
 type ArrowTypes = 'KEY_ARROW_UP_COMMAND' | 'KEY_ARROW_DOWN_COMMAND';
@@ -93,15 +93,16 @@ function setPointAfterDent(
 
 function doDent(line: LinedCodeLineNode, isIndent: boolean) {
   const lineText = line.getTextContent();
+  const codeNode = line.getParent() as LinedCodeNode;
 
   if (isIndent) {
-    line.replaceLineCode(`\t${lineText}`);
+    codeNode.replaceLineCode(`\t${lineText}`, line);
   } else {
     const hasTabOrSpaceForDelete =
       lineText.startsWith('\t') || lineText.startsWith(' ');
 
     if (hasTabOrSpaceForDelete) {
-      line.replaceLineCode(lineText.substring(1));
+      codeNode.replaceLineCode(lineText.substring(1), line);
     }
   }
 }
@@ -170,7 +171,7 @@ export function handleBorders(type: ArrowTypes, event: KeyboardEvent): boolean {
     const codeNode = line.getParent();
 
     if ($isLinedCodeNode(codeNode)) {
-      if (!codeNode.getOptions().isLockedBlock) {
+      if (!codeNode.getSettings().isLockedBlock) {
         const isArrowUp = type === 'KEY_ARROW_UP_COMMAND';
 
         if (isArrowUp && line.isStartOfFirstLine()) {

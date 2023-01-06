@@ -96,7 +96,7 @@ export function PrettierButton({lang, editor, getCodeDOMNode}: Props) {
           const parsedTextByLine = parsed.split(/\n/);
           codeNode.getChildren<LinedCodeLineNode>().forEach((line, index) => {
             if (line.getTextContent() !== parsedTextByLine[index]) {
-              line.replaceLineCode(parsedTextByLine[index]);
+              codeNode.replaceLineCode(parsedTextByLine[index], line);
             }
           });
 
