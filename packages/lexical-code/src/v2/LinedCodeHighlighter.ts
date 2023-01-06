@@ -66,7 +66,7 @@ function updateHighlightsWhenTyping(highlightNode: LinedCodeHighlightNode) {
           const lineOffset = line.getLineOffset(topPoint);
 
           if (codeNode.updateLineCode(line)) {
-            line.nextSelection(lineOffset);
+            line.selectNext(lineOffset);
           }
         }
       }

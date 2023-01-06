@@ -4,6 +4,7 @@ import {
   $getSelection,
   $isNodeSelection,
   $isRangeSelection,
+  $isTextNode,
   EditorConfig,
   LexicalNode,
   NodeKey,
@@ -17,8 +18,9 @@ import {
   addClassNamesToElement,
   removeClassNamesFromElement,
 } from '../../../lexical-utils/src';
+import {$isLinedCodeHighlightNode} from './LinedCodeHighlightNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
-import {getLinesFromSelection} from './utils';
+import {getLinesFromSelection, isTabOrSpace} from './utils';
 
 type SerializedLinedCodeLineNode = Spread<
   {
@@ -48,10 +50,9 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
 
   constructor(discreteLineClasses?: string, key?: NodeKey) {
     super(key);
-    // Generally speaking, you'll only set this in response to user interaction
-    // right now. As a result, you'll never set this during initialization.
-    // It is included and updated via .clone and .update to ensure
-    // changes survie reconciliation...
+    // Generally speaking, you'll only set this in response to user interaction,
+    // never during initialization. It's passed foward via .clone and
+    // .updateDOM to ensure changes survive reconciliation.
     this.__discreteLineClasses = discreteLineClasses;
   }
 
@@ -125,57 +126,66 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     return false;
   }
 
-  splitLineText(lineOffset: number) {
+  selectNext(anchorOffset?: number, focusOffset?: number) {
     const self = this.getLatest();
-    const lineText = self.getTextContent();
+    const isEmpty = self.isEmpty();
+    const canSelectNextLinePosition =
+      typeof anchorOffset !== 'undefined' || isEmpty;
 
-    const textBeforeSplit = lineText.slice(0, lineOffset);
-    const textAfterSplit = lineText.slice(lineOffset, lineText.length);
+    if (canSelectNextLinePosition) {
+      const canSelectCollapsedPoint =
+        typeof anchorOffset === 'number' && typeof focusOffset !== 'number';
+      const canSelectRange =
+        typeof anchorOffset === 'number' && typeof focusOffset === 'number';
 
-    return [textBeforeSplit, textAfterSplit];
-  }
+      if (isEmpty) {
+        return self.selectStart();
+      } else if (canSelectCollapsedPoint) {
+        const {childFromLineOffset: nextChild, updatedOffset: nextOffset} =
+          self.getChildFromLineOffset(anchorOffset);
+        const canSelectNewChild = nextChild && typeof nextOffset === 'number';
 
-  nextSelection(aOffset: number, bOffset?: number) {
-    const self = this.getLatest();
-    const selectStart = aOffset === 0 || self.isEmptyLine();
+        if (canSelectNewChild) {
+          return nextChild.select(nextOffset, nextOffset);
+        }
+      } else if (canSelectRange) {
+        const {childFromLineOffset: nextChildA, updatedOffset: nextOffsetA} =
+          self.getChildFromLineOffset(anchorOffset);
+        const {childFromLineOffset: nextChildB, updatedOffset: nextOffsetB} =
+          self.getChildFromLineOffset(focusOffset);
 
-    if (selectStart) {
-      self.selectStart();
-    } else {
-      const {childFromLineOffset: nextChildA, updatedOffset: nextOffsetA} =
-        self.getChildFromLineOffset(aOffset);
+        const canSelectA = nextChildA && typeof nextOffsetA === 'number';
+        const canSelectB = nextChildB && typeof nextOffsetB === 'number';
 
-      if (typeof bOffset === 'undefined' && typeof nextChildA !== 'undefined') {
-        nextChildA.select(nextOffsetA, nextOffsetA);
+        if (canSelectA && canSelectB) {
+          const selection = $getSelection();
+
+          if ($isRangeSelection(selection)) {
+            selection.anchor.set(
+              nextChildA.getKey(),
+              nextOffsetA,
+              $isTextNode(nextChildA) ? 'text' : 'element',
+            );
+            selection.focus.set(
+              nextChildB.getKey(),
+              nextOffsetB,
+              $isTextNode(nextChildB) ? 'text' : 'element',
+            );
+
+            return $getSelection();
+          }
+        }
       }
     }
+
+    return super.selectNext(anchorOffset, focusOffset);
   }
-
-  // nextSelection(lineOffset: number) {
-  //   const self = this.getLatest();
-  //   const selectStart = lineOffset === 0 || self.isEmptyLine();
-
-  //   if (selectStart) {
-  //     self.selectStart();
-  //   } else {
-  //     const {childFromLineOffset, updatedOffset} =
-  //       self.getChildFromLineOffset(lineOffset);
-
-  //     if (
-  //       $isLinedCodeLineNode(childFromLineOffset) &&
-  //       typeof updatedOffset !== 'undefined'
-  //     ) {
-  //       childFromLineOffset.select(updatedOffset, updatedOffset);
-  //     }
-  //   }
-  // }
 
   getLineOffset(point: Point) {
     const pointNode = point.getNode();
-    const isEmptyLine =
-      $isLinedCodeLineNode(pointNode) && pointNode.isEmptyLine();
+    const isEmpty = $isLinedCodeLineNode(pointNode) && pointNode.isEmpty();
 
-    if (isEmptyLine) {
+    if (isEmpty) {
       return 0;
     }
 
@@ -220,8 +230,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
       const anchor = selection.anchor;
       const lastChild = self.getLastChild();
 
-      // null = empty line
-      if (lastChild !== null) {
+      if ($isLinedCodeHighlightNode(lastChild)) {
         const isLastChild = anchor.key === lastChild.getKey();
         const isLastOffset = anchor.offset === lastChild.getTextContentSize();
 
@@ -229,23 +238,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
       }
     }
 
-    return false;
-  }
-
-  isTabOrSpace(char: string) {
-    const isString = typeof char === 'string';
-    const isMultipleCharacters = char.length > 1;
-
-    if (!isString || isMultipleCharacters) return false;
-
-    return /[\t ]/.test(char);
-  }
-
-  isEmptyLine() {
-    // TODO: replace w/just isEmpty()
-    const self = this.getLatest();
-    return self.isEmpty();
-    // return self.getChildrenSize() === 0;
+    return true; // end of empty line
   }
 
   isStartOfLine() {
@@ -289,14 +282,14 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     const self = this.getLatest();
     const text = self.getTextContent();
     const splitText = text.slice(0, lineOffset).split('');
-    const allSpaces = splitText.every((char) => {
-      return self.isTabOrSpace(char);
+    const isAllSpaces = splitText.every((char) => {
+      return isTabOrSpace(char);
     });
 
-    if (allSpaces) return splitText.length;
+    if (isAllSpaces) return splitText.length;
 
     return splitText.findIndex((char) => {
-      return !self.isTabOrSpace(char);
+      return !isTabOrSpace(char);
     });
   }
 
@@ -344,7 +337,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
           .slice(0, lineSpacers.length)
           .split('')
           .every((char) => {
-            return line.isTabOrSpace(char);
+            return isTabOrSpace(char);
           });
         const afterSplitAndSpacers = `${lineSpacers}${
           shouldTrimEnd ? afterSplit.trimEnd() : afterSplit
@@ -360,7 +353,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
         const hasChildren = newLine.getChildrenSize() > 0;
 
         newLine.setDirection(self.getDirection());
-        newLine.nextSelection(hasChildren ? lineSpacers.length : 0);
+        newLine.selectNext(hasChildren ? lineSpacers.length : 0);
 
         return newLine;
       }

@@ -87,7 +87,7 @@ type SerializedCodeNodeN = Spread<
 
 const LANGUAGE_DATA_ATTRIBUTE = 'data-highlight-language';
 
-// review methods and move between cn and cln
+// reorder methods and review naming
 // test commands?
 
 export class LinedCodeNode extends ElementNode {
@@ -330,16 +330,25 @@ export class LinedCodeNode extends ElementNode {
         const isLastLineSelected =
           lastLine !== null && anchorNode.getKey() === lastLine.getKey();
         const isSelectedLastLineEmpty =
-          isLastLineSelected && lastLine.isEmptyLine();
+          isLastLineSelected && lastLine.isEmpty();
 
         if (isSelectedLastLineEmpty) {
           const previousLine = lastLine.getPreviousSibling<LinedCodeLineNode>();
-          return previousLine !== null && previousLine.isEmptyLine();
+          return previousLine !== null && previousLine.isEmpty();
         }
       }
     }
 
     return false;
+  }
+
+  splitLineText(lineOffset: number, line: LinedCodeLineNode) {
+    const lineText = line.getTextContent();
+
+    const textBeforeSplit = lineText.slice(0, lineOffset);
+    const textAfterSplit = lineText.slice(lineOffset, lineText.length);
+
+    return [textBeforeSplit, textAfterSplit];
   }
 
   // Mutation
@@ -580,7 +589,7 @@ export class LinedCodeNode extends ElementNode {
           const nextLineOffset =
             lastLine.getTextContent().length - textAfterSplit.length;
 
-          lastLine.nextSelection(nextLineOffset);
+          lastLine.selectNext(nextLineOffset);
 
           return true;
         }

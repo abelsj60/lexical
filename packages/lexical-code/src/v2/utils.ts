@@ -95,8 +95,8 @@ export function getLinesFromSelection(selection: RangeSelection) {
     const topLineOffset = topLine.getLineOffset(lineData.topPoint);
     const bottomLineOffset = bottomLine.getLineOffset(lineData.bottomPoint);
 
-    const [textBefore] = topLine.splitLineText(topLineOffset);
-    const [, textAfter] = bottomLine.splitLineText(bottomLineOffset);
+    const [textBefore] = codeNode.splitLineText(topLineOffset, topLine);
+    const [, textAfter] = codeNode.splitLineText(bottomLineOffset, bottomLine);
 
     lineData.splitText = [textBefore, textAfter];
 
@@ -140,4 +140,13 @@ export function addOptionOrNull<T>(option: T | null) {
 export function addOptionOrDefault<T1, T2>(option: T1, defaultValue: T2) {
   const finalValue = addOptionOrNull(option);
   return finalValue !== null ? finalValue : defaultValue;
+}
+
+export function isTabOrSpace(char: string) {
+  const isString = typeof char === 'string';
+  const isMultipleCharacters = char.length > 1;
+
+  if (!isString || isMultipleCharacters) return false;
+
+  return /[\t ]/.test(char);
 }

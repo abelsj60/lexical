@@ -59,7 +59,7 @@ function setPointAfterDent(
 
     if (nextOffset === 0) {
       if ($isLinedCodeLineNode(pointNode)) {
-        pointNode.nextSelection(nextOffset);
+        pointNode.selectNext(nextOffset);
       }
     } else {
       const {childFromLineOffset, updatedOffset} =
@@ -279,7 +279,7 @@ export function handleShiftingLines(
         codeNode.splice(displacedLineIndex, 0, linesForUpdate);
 
         if (isCollapsed) {
-          topLine.nextSelection(originalTopLineOffset);
+          topLine.selectNext(originalTopLineOffset);
         } else {
           const isMultiLineRange =
             $isLinedCodeLineNode(bottomLine) &&
