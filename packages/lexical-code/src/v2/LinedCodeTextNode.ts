@@ -19,7 +19,7 @@ import {
 import {$isLinedCodeNode} from './LinedCodeNode';
 import {$getLinedCodeNode, getHighlightThemeClass} from './utils';
 
-type SerializedLinedCodeHighlightNode = Spread<
+type SerializedLinedCodeTextNode = Spread<
   {
     highlightType: string | null | undefined;
     type: 'code-text';
@@ -29,7 +29,7 @@ type SerializedLinedCodeHighlightNode = Spread<
 >;
 
 /** @noInheritDoc */
-export class LinedCodeHighlightNode extends TextNode {
+export class LinedCodeTextNode extends TextNode {
   /** @internal */
   __highlightType: string | null | undefined;
 
@@ -46,8 +46,8 @@ export class LinedCodeHighlightNode extends TextNode {
     return 'code-text';
   }
 
-  static clone(node: LinedCodeHighlightNode): LinedCodeHighlightNode {
-    return new LinedCodeHighlightNode(
+  static clone(node: LinedCodeTextNode): LinedCodeTextNode {
+    return new LinedCodeTextNode(
       node.__text,
       node.__highlightType || undefined,
       node.__key,
@@ -122,12 +122,12 @@ export class LinedCodeHighlightNode extends TextNode {
   }
 
   static importJSON(
-    serializedNode: SerializedLinedCodeHighlightNode,
-  ): LinedCodeHighlightNode {
+    serializedNode: SerializedLinedCodeTextNode,
+  ): LinedCodeTextNode {
     // note: can't fix blank strings here b/c there's no way to remove
     // the node that's being created from the function's return value
     // may be able to fix in CodeLineNode or in a core command
-    const node = $createLinedCodeHighlightNode(
+    const node = $createLinedCodeTextNode(
       serializedNode.text,
       serializedNode.highlightType,
     );
@@ -187,15 +187,15 @@ export class LinedCodeHighlightNode extends TextNode {
   }
 }
 
-export function $createLinedCodeHighlightNode(
+export function $createLinedCodeTextNode(
   text: string,
   highlightType?: string | null | undefined,
-): LinedCodeHighlightNode {
-  return new LinedCodeHighlightNode(text, highlightType);
+): LinedCodeTextNode {
+  return new LinedCodeTextNode(text, highlightType);
 }
 
-export function $isLinedCodeHighlightNode(
-  node: LexicalNode | LinedCodeHighlightNode | null | undefined,
-): node is LinedCodeHighlightNode {
-  return node instanceof LinedCodeHighlightNode;
+export function $isLinedCodeTextNode(
+  node: LexicalNode | LinedCodeTextNode | null | undefined,
+): node is LinedCodeTextNode {
+  return node instanceof LinedCodeTextNode;
 }

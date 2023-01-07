@@ -33,10 +33,7 @@ import {
   isCodeElement,
   isGitHubCodeTable,
 } from './Importers';
-import {
-  $createLinedCodeHighlightNode,
-  LinedCodeHighlightNode,
-} from './LinedCodeHighlightNode';
+import {$createLinedCodeTextNode, LinedCodeTextNode} from './LinedCodeTextNode';
 import {
   $createLinedCodeLineNode,
   $isLinedCodeLineNode,
@@ -625,14 +622,14 @@ export class LinedCodeNode extends ElementNode {
     return getNormalizedTokens(tokens);
   }
 
-  getHighlightNodes(text: string): LinedCodeHighlightNode[] {
+  getHighlightNodes(text: string): LinedCodeTextNode[] {
     if (text.length === 0) return [];
 
     const self = this.getLatest();
     const normalizedTokens = self.getNormalizedTokens(text);
 
     return normalizedTokens.map((token) => {
-      return $createLinedCodeHighlightNode(token.content, token.type);
+      return $createLinedCodeTextNode(token.content, token.type);
     });
   }
 
@@ -640,7 +637,7 @@ export class LinedCodeNode extends ElementNode {
     const self = this.getLatest();
     const text = line.getTextContent();
     const normalizedTokens = self.getNormalizedTokens(text);
-    const children = line.getChildren() as LinedCodeHighlightNode[];
+    const children = line.getChildren() as LinedCodeTextNode[];
 
     // why? empty text strings can cause length mismatch on paste
     if (children.length !== normalizedTokens.length) return false;

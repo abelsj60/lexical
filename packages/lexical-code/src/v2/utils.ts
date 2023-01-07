@@ -8,7 +8,7 @@ import {
   RangeSelection,
 } from 'lexical';
 
-import {$isLinedCodeHighlightNode} from './LinedCodeHighlightNode';
+import {$isLinedCodeTextNode} from './LinedCodeTextNode';
 import {$isLinedCodeLineNode, LinedCodeLineNode} from './LinedCodeLineNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
 import {NormalizedToken, Token} from './Prism';
@@ -29,7 +29,7 @@ type LinesFromSelection = BorderPoints & SelectedLines;
 function getLineFromPoint(point: Point): LinedCodeLineNode | null {
   const pointNode = point.getNode();
 
-  if ($isLinedCodeHighlightNode(pointNode)) {
+  if ($isLinedCodeTextNode(pointNode)) {
     return pointNode.getParent();
   } else if ($isLinedCodeLineNode(pointNode)) {
     return pointNode;
@@ -146,7 +146,7 @@ export function $isEndOfLastCodeLine(line: LinedCodeLineNode) {
         if (!line.isEmpty()) {
           const lastChild = line.getLastChild();
 
-          if ($isLinedCodeHighlightNode(lastChild)) {
+          if ($isLinedCodeTextNode(lastChild)) {
             const isLastChild = anchor.key === lastChild.getKey();
             const isLastOffset =
               anchor.offset === lastChild.getTextContentSize();

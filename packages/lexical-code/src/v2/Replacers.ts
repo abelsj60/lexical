@@ -2,7 +2,7 @@
 // eslint-disable-next-line simple-import-sort/imports
 import {ParagraphNode, TextNode} from 'lexical';
 import {PrismTokenizer} from '..';
-import {LinedCodeHighlightNode} from './LinedCodeHighlightNode';
+import {LinedCodeTextNode} from './LinedCodeTextNode';
 
 import {LinedCodeLineNode} from './LinedCodeLineNode';
 import {
@@ -96,7 +96,7 @@ function swapTextForLinedCodeHighlight() {
     replace: TextNode,
     with: (node: TextNode) => {
       if ($isLinedCodeNode($getLinedCodeNode())) {
-        return new LinedCodeHighlightNode(node.__text || '');
+        return new LinedCodeTextNode(node.__text || '');
       }
 
       return node;
@@ -106,7 +106,7 @@ function swapTextForLinedCodeHighlight() {
 
 export function getLinedCodeNodes(defaultOptions?: LinedCodeNodeOptions) {
   return [
-    LinedCodeHighlightNode,
+    LinedCodeTextNode,
     LinedCodeLineNode,
     LinedCodeNode,
     swapLinedCodeNodeForFullyConfiguredVersion(defaultOptions),

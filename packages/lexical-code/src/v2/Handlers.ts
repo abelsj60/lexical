@@ -10,7 +10,7 @@ import {
   TextNode,
 } from 'lexical';
 
-import {$isLinedCodeHighlightNode} from './LinedCodeHighlightNode';
+import {$isLinedCodeTextNode} from './LinedCodeTextNode';
 import {$isLinedCodeLineNode, LinedCodeLineNode} from './LinedCodeLineNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
 import {
@@ -344,7 +344,7 @@ export function handleMoveTo(type: MoveTypes, event: KeyboardEvent): boolean {
       ? line.getChildFromLineOffset(firstCharacterIndex)
       : line.getChildFromLineOffset(lastCharacterIndex);
 
-    if ($isLinedCodeHighlightNode(childFromLineOffset)) {
+    if ($isLinedCodeTextNode(childFromLineOffset)) {
       if (typeof updatedOffset === 'number') {
         childFromLineOffset.select(updatedOffset, updatedOffset);
       }

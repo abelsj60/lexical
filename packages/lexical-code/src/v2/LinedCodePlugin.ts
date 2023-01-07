@@ -31,13 +31,13 @@ import {
   handlePlainTextConversion,
   handleShiftingLines,
 } from './Handlers';
-import {LinedCodeHighlightNode} from './LinedCodeHighlightNode';
+import {LinedCodeTextNode} from './LinedCodeTextNode';
 import {$isLinedCodeLineNode, LinedCodeLineNode} from './LinedCodeLineNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
 import {$getLinedCodeNode, $getLinesFromSelection} from './utils';
 
 function removeHighlightsWithNoTextAfterImportJSON(
-  highlightNode: LinedCodeHighlightNode,
+  highlightNode: LinedCodeTextNode,
 ) {
   // needed because exportJSON may export an empty highlight node when
   // it has a length of one. exportDOM is fixed via a patch in export
@@ -50,7 +50,7 @@ function removeHighlightsWithNoTextAfterImportJSON(
   }
 }
 
-function updateHighlightsWhenTyping(highlightNode: LinedCodeHighlightNode) {
+function updateHighlightsWhenTyping(highlightNode: LinedCodeTextNode) {
   const selection = $getSelection();
 
   if ($isRangeSelection(selection)) {
@@ -75,16 +75,14 @@ function updateHighlightsWhenTyping(highlightNode: LinedCodeHighlightNode) {
 }
 
 export function registerCodeHighlightingN(editor: LexicalEditor) {
-  if (
-    !editor.hasNodes([LinedCodeNode, LinedCodeLineNode, LinedCodeHighlightNode])
-  ) {
+  if (!editor.hasNodes([LinedCodeNode, LinedCodeLineNode, LinedCodeTextNode])) {
     throw new Error(
-      'CodeHighlightPlugin: LinedCodeNode, LinedCodeLineNode, or LinedCodeHighlightNode not registered on editor',
+      'CodeHighlightPlugin: LinedCodeNode, LinedCodeLineNode, or LinedCodeTextNode not registered on editor',
     );
   }
 
   return mergeRegister(
-    editor.registerNodeTransform(LinedCodeHighlightNode, (node) => {
+    editor.registerNodeTransform(LinedCodeTextNode, (node) => {
       const codeNode = $getLinedCodeNode();
 
       if ($isLinedCodeNode(codeNode)) {
