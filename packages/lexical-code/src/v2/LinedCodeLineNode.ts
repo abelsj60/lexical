@@ -48,9 +48,10 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
 
   constructor(discreteLineClasses?: string, key?: NodeKey) {
     super(key);
-    // Generally speaking, you'll only set this in response to user interaction,
-    // never during initialization. It's passed foward via .clone and
-    // .updateDOM to ensure changes survive reconciliation.
+
+    // You'll generally only set this in response to user interaction, not
+    // during initialization. We include it as a constructor option so
+    // it .clone and .updateDOM keep it during reconciliation.
     this.__discreteLineClasses = discreteLineClasses;
   }
 

@@ -505,7 +505,7 @@ export default function ToolbarPlugin(): JSX.Element {
           if ($isLinedCodeNode(element.getParent())) {
             const language = (
               element.getParent() as LinedCodeNode
-            ).getLanguage() as keyof typeof CODE_LANGUAGE_MAP;
+            ).getSettings().language as keyof typeof CODE_LANGUAGE_MAP;
             setCodeLanguage(
               language ? CODE_LANGUAGE_MAP[language] || language : '',
             );

@@ -1,8 +1,14 @@
 /* eslint-disable header/header */
 // eslint-disable-next-line simple-import-sort/imports
-import {$getSelection, $isRangeSelection, Point, RangeSelection} from 'lexical';
-import {$isLinedCodeHighlightNode} from './LinedCodeHighlightNode';
+import {
+  $getSelection,
+  $isRangeSelection,
+  EditorThemeClasses,
+  Point,
+  RangeSelection,
+} from 'lexical';
 
+import {$isLinedCodeHighlightNode} from './LinedCodeHighlightNode';
 import {$isLinedCodeLineNode, LinedCodeLineNode} from './LinedCodeLineNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
 import {NormalizedToken, Token} from './Prism';
@@ -205,4 +211,16 @@ export function getNormalizedTokens(
 
     return line;
   }, [] as NormalizedToken[]);
+}
+
+export function getHighlightThemeClass(
+  theme: EditorThemeClasses,
+  highlightType: string | null | undefined,
+): string | null | undefined {
+  return (
+    highlightType &&
+    theme &&
+    theme.codeHighlight &&
+    theme.codeHighlight[highlightType]
+  );
 }

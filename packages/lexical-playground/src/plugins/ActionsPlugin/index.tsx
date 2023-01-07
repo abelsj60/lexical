@@ -8,7 +8,6 @@
 
 import type {LexicalEditor} from 'lexical';
 
-import {$createCodeNode, $isCodeNode} from '@lexical/code';
 import {exportFile, importFile} from '@lexical/file';
 import {
   $convertFromMarkdownString,
@@ -19,7 +18,6 @@ import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 import {mergeRegister} from '@lexical/utils';
 import {CONNECTED_COMMAND, TOGGLE_CONNECT_COMMAND} from '@lexical/yjs';
 import {
-  $createTextNode,
   $getRoot,
   $isParagraphNode,
   CLEAR_EDITOR_COMMAND,
@@ -28,6 +26,10 @@ import {
 import * as React from 'react';
 import {useCallback, useEffect, useState} from 'react';
 
+import {
+  $createLinedCodeNode,
+  $isLinedCodeNode,
+} from '../../../../lexical-code/src/v2/LinedCodeNode';
 import useModal from '../../hooks/useModal';
 import Button from '../../ui/Button';
 import {PLAYGROUND_TRANSFORMERS} from '../MarkdownTransformers';
@@ -140,18 +142,20 @@ export default function ActionsPlugin({
     editor.update(() => {
       const root = $getRoot();
       const firstChild = root.getFirstChild();
-      if ($isCodeNode(firstChild) && firstChild.getLanguage() === 'markdown') {
+      if (
+        $isLinedCodeNode(firstChild) &&
+        firstChild.getSettings().language === 'markdown'
+      ) {
         $convertFromMarkdownString(
           firstChild.getTextContent(),
           PLAYGROUND_TRANSFORMERS,
         );
       } else {
         const markdown = $convertToMarkdownString(PLAYGROUND_TRANSFORMERS);
-        root
-          .clear()
-          .append(
-            $createCodeNode('markdown').append($createTextNode(markdown)),
-          );
+        const codeNode = $createLinedCodeNode({initialLanguage: 'markdown'});
+
+        codeNode.insertRawText(markdown);
+        root.clear().append(codeNode);
       }
       root.selectEnd();
     });

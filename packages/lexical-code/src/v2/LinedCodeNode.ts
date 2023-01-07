@@ -27,29 +27,27 @@ import {
   removeClassNamesFromElement,
 } from '../../../lexical-utils/src';
 import {
-  $createLinedCodeLineNode,
-  $isLinedCodeLineNode,
-  LinedCodeLineNode,
-} from './LinedCodeLineNode';
-
-import {
-  $getLinesFromSelection,
-  getNormalizedTokens,
-  addOptionOrNull,
-} from './utils';
-import {
   convertDivElement,
   convertPreElement,
   convertTableElement,
   isCodeElement,
   isGitHubCodeTable,
-} from './DomDecoders';
-
+} from './Importers';
 import {
   $createLinedCodeHighlightNode,
   LinedCodeHighlightNode,
 } from './LinedCodeHighlightNode';
+import {
+  $createLinedCodeLineNode,
+  $isLinedCodeLineNode,
+  LinedCodeLineNode,
+} from './LinedCodeLineNode';
 import {mapToPrismLanguage, NormalizedToken, Token, Tokenizer} from './Prism';
+import {
+  $getLinesFromSelection,
+  addOptionOrNull,
+  getNormalizedTokens,
+} from './utils';
 
 export type Unserializeable = null;
 export interface LinedCodeNodeOptions {
@@ -87,8 +85,7 @@ type SerializedCodeNodeN = Spread<
 
 const LANGUAGE_DATA_ATTRIBUTE = 'data-highlight-language';
 
-// test commands?
-// dent bug on empty line when backwards...
+// test commands? and adding discrete line classes...!
 
 export class LinedCodeNode extends ElementNode {
   /** @internal */
@@ -167,7 +164,7 @@ export class LinedCodeNode extends ElementNode {
 
     addClassNamesToElement(element, codeBlockClasses);
     element.setAttribute('spellcheck', 'false');
-    const language = this.getLanguage();
+    const {language} = self.getSettings();
 
     if (language) {
       element.setAttribute(LANGUAGE_DATA_ATTRIBUTE, language);
@@ -663,10 +660,6 @@ export class LinedCodeNode extends ElementNode {
     const children = self.getChildren();
 
     return self.getRawText(children);
-  }
-
-  getLanguage() {
-    return this.getLatest().__language;
   }
 
   getSettings(): Omit<LinedCodeNodeOptions, 'initialLanguage'> & {

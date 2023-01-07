@@ -4,7 +4,6 @@ import {
   $createLineBreakNode,
   DOMExportOutput,
   EditorConfig,
-  EditorThemeClasses,
   LexicalEditor,
   LexicalNode,
   NodeKey,
@@ -18,7 +17,7 @@ import {
   removeClassNamesFromElement,
 } from '../../../lexical-utils/src';
 import {$isLinedCodeNode} from './LinedCodeNode';
-import {$getLinedCodeNode} from './utils';
+import {$getLinedCodeNode, getHighlightThemeClass} from './utils';
 
 type SerializedLinedCodeHighlightNode = Spread<
   {
@@ -55,10 +54,7 @@ export class LinedCodeHighlightNode extends TextNode {
     );
   }
 
-  getHighlightType() {
-    const self = this.getLatest();
-    return self.__highlightType;
-  }
+  // View
 
   createDOM(config: EditorConfig): HTMLElement {
     const self = this.getLatest();
@@ -143,10 +139,6 @@ export class LinedCodeHighlightNode extends TextNode {
     return node;
   }
 
-  canBeEmpty() {
-    return false;
-  }
-
   exportDOM(editor: LexicalEditor): DOMExportOutput {
     const {element} = super.exportDOM(editor);
 
@@ -176,9 +168,22 @@ export class LinedCodeHighlightNode extends TextNode {
     };
   }
 
+  // Mutation
+
   // Prevent formatting (bold, underline, etc)
   setFormat(format: number) {
     return this;
+  }
+
+  // Helpers
+
+  getHighlightType() {
+    const self = this.getLatest();
+    return self.__highlightType;
+  }
+
+  canBeEmpty() {
+    return false;
   }
 }
 
@@ -193,16 +198,4 @@ export function $isLinedCodeHighlightNode(
   node: LexicalNode | LinedCodeHighlightNode | null | undefined,
 ): node is LinedCodeHighlightNode {
   return node instanceof LinedCodeHighlightNode;
-}
-
-function getHighlightThemeClass(
-  theme: EditorThemeClasses,
-  highlightType: string | null | undefined,
-): string | null | undefined {
-  return (
-    highlightType &&
-    theme &&
-    theme.codeHighlight &&
-    theme.codeHighlight[highlightType]
-  );
 }

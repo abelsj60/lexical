@@ -15,9 +15,10 @@ import type {
 } from '@lexical/markdown';
 import type {ElementNode, LexicalNode, TextFormatType} from 'lexical';
 
-import {$isCodeNode} from '@lexical/code';
 import {$isListItemNode, $isListNode} from '@lexical/list';
 import {$isHeadingNode, $isQuoteNode} from '@lexical/rich-text';
+
+import {$isLinedCodeNode} from '../../lexical-code/src/v2/LinedCodeNode';
 
 type MarkdownFormatKind =
   | 'noTransformation'
@@ -381,14 +382,14 @@ function blockQuoteExport(
 }
 
 function codeBlockExport(node: LexicalNode) {
-  if (!$isCodeNode(node)) {
+  if (!$isLinedCodeNode(node)) {
     return null;
   }
 
   const textContent = node.getTextContent();
   return (
     '```' +
-    (node.getLanguage() || '') +
+    (node.getSettings().language || '') +
     (textContent ? '\n' + textContent : '') +
     '\n' +
     '```'

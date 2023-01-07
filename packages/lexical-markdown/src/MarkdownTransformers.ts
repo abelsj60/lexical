@@ -225,7 +225,7 @@ export const CODE: ElementTransformer = {
     const textContent = node.getTextContent();
     return (
       '```' +
-      (node.getLanguage() || '') +
+      (node.getSettings().language || '') +
       (textContent ? '\n' + textContent : '') +
       '\n' +
       '```'

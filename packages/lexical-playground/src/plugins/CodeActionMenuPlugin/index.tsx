@@ -74,7 +74,7 @@ function CodeActionMenuContainer({
 
         if ($isLinedCodeNode(maybeCodeNode)) {
           codeNode = maybeCodeNode;
-          _lang = codeNode.getLanguage() || '';
+          _lang = codeNode.getSettings().language || '';
         }
       });
 

@@ -4,35 +4,40 @@ import {
   $getPreviousSelection,
   $getSelection,
   $isRangeSelection,
-  LexicalNode,
   ParagraphNode,
   Point,
+  RangeSelection,
   TextNode,
 } from 'lexical';
+
 import {$isLinedCodeHighlightNode} from './LinedCodeHighlightNode';
 import {$isLinedCodeLineNode, LinedCodeLineNode} from './LinedCodeLineNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
 import {
-  $isEndOfLastCodeLine,
-  $isStartOfFirstCodeLine,
   $getLinedCodeNode,
   $getLinesFromSelection,
+  $isEndOfLastCodeLine,
+  $isStartOfFirstCodeLine,
 } from './utils';
 
 type ArrowTypes = 'KEY_ARROW_UP_COMMAND' | 'KEY_ARROW_DOWN_COMMAND';
 type DentTypes = 'INDENT_CONTENT_COMMAND' | 'OUTDENT_CONTENT_COMMAND';
 type MoveTypes = 'MOVE_TO_START' | 'MOVE_TO_END';
 
-function getNewTextSelectionKey(node: LexicalNode | null) {
+function getTextKeyForNewChildren(point: Point) {
   // The selection is set to type 'element' when the line is empty.
   // When a tab or space is added, it should be updated to type
   // 'text.' As we took over, it needs a helping hand...
 
-  if ($isLinedCodeLineNode(node)) {
-    const children = node.getChildren();
+  if (point.offset === 0) {
+    const pointNode = point.getNode();
 
-    if (children.length > 0) {
-      return children[0].getKey();
+    if ($isLinedCodeLineNode(pointNode)) {
+      const children = pointNode.getChildren();
+
+      if (children.length === 1) {
+        return children[0].getKey();
+      }
     }
   }
 }
@@ -43,6 +48,7 @@ function setPointAfterDent(
   originalLineTextLength: number,
   line: LinedCodeLineNode,
   point: Point,
+  position: 'top' | 'bottom',
 ) {
   // note: There can be a slight delay when returning the selection
   // to 0 via the OUTDENT command. it would be nice to fix someday.
@@ -51,47 +57,52 @@ function setPointAfterDent(
     : originalLineTextLength > line.getTextContentSize();
 
   if (canUpdatePoint) {
-    const pointNode = point.getNode();
-    const newTextSelectionKey =
-      isIndent && originalLineOffset === 0
-        ? getNewTextSelectionKey(pointNode)
-        : undefined;
-    const nextOffset = isIndent
+    let offset = isIndent
       ? originalLineOffset + 1
       : originalLineOffset > 0
       ? originalLineOffset - 1
       : originalLineOffset;
+    const {childFromLineOffset, updatedOffset} =
+      line.getChildFromLineOffset(offset);
+    const isValid = childFromLineOffset && typeof updatedOffset === 'number';
 
-    if (nextOffset === 0) {
-      if ($isLinedCodeLineNode(pointNode)) {
-        pointNode.selectNext(nextOffset);
+    if (isValid) {
+      const selection = $getSelection() as RangeSelection;
+      const prevSelection = $getPreviousSelection() as RangeSelection;
+      const textKeyForNewChildren = getTextKeyForNewChildren(point);
+
+      const key = textKeyForNewChildren || childFromLineOffset.getKey();
+      let type: 'text' | 'element' = 'text';
+      offset = updatedOffset;
+
+      // Give Lex a helping hand
+      if (selection.isCollapsed()) {
+        if (isIndent) {
+          if (textKeyForNewChildren) {
+            offset = 1;
+          }
+        } else {
+          if (offset === 0) {
+            type = 'element';
+          }
+        }
       }
-    } else {
-      const {childFromLineOffset, updatedOffset} =
-        line.getChildFromLineOffset(nextOffset);
-      const isValid = childFromLineOffset && updatedOffset;
 
-      if (isValid) {
-        // use prevSelection for current status. seleciton updates
-        // too fast...
-        const prevSelection = $getPreviousSelection();
-        const key =
-          isIndent && newTextSelectionKey
-            ? newTextSelectionKey
-            : childFromLineOffset.getKey();
-        const offset =
-          newTextSelectionKey &&
-          $isRangeSelection(prevSelection) &&
-          !prevSelection.isCollapsed()
-            ? 0
-            : updatedOffset;
-        const type =
-          newTextSelectionKey || $isLinedCodeHighlightNode(childFromLineOffset)
-            ? 'text'
-            : 'element';
+      // Give it another hand...
+      if (!selection.isCollapsed()) {
+        if (position === 'top') {
+          const anchorOffset = prevSelection.anchor.offset;
+          const focusOffset = prevSelection.focus.offset;
 
-        point.set(key, offset, type);
+          if (!selection.isBackward() && anchorOffset === 0) {
+            offset = 0;
+          } else if (selection.isBackward() && focusOffset === 0) {
+            offset = 0;
+          }
+        }
       }
+
+      point.set(key, offset, type);
     }
   }
 }
@@ -149,6 +160,7 @@ export function handleDents(type: DentTypes): boolean {
       topLineTextLength,
       topLine,
       topPoint,
+      'top',
     );
 
     setPointAfterDent(
@@ -157,6 +169,7 @@ export function handleDents(type: DentTypes): boolean {
       bottomLineTextLength,
       bottomLine,
       bottomPoint,
+      'bottom',
     );
 
     return true;
@@ -199,7 +212,7 @@ export function handleBorders(type: ArrowTypes, event: KeyboardEvent): boolean {
   return false;
 }
 
-function setMultiLineRange(
+function setMultiLineRangeWhenShiftingLines(
   topLineOffset: number,
   bottomLineOffset: number,
   topPoint: Point,
@@ -291,7 +304,7 @@ export function handleShiftingLines(
             typeof originalBottomLineOffset === 'number';
 
           if (isMultiLineRange) {
-            setMultiLineRange(
+            setMultiLineRangeWhenShiftingLines(
               originalTopLineOffset,
               originalBottomLineOffset,
               topPoint,
