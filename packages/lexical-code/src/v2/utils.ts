@@ -20,37 +20,6 @@ type SelectedLines = {
 type PartialLinesFromSelection = BorderPoints & Partial<SelectedLines>;
 type LinesFromSelection = BorderPoints & SelectedLines;
 
-export function getNormalizedTokens(
-  tokens: (string | Token)[],
-): NormalizedToken[] {
-  return tokens.reduce((line, token) => {
-    const isPlainText = typeof token === 'string';
-
-    if (isPlainText) {
-      line.push({content: token, type: undefined});
-    } else {
-      const {content, type} = token;
-
-      const isStringToken = typeof content === 'string';
-      const isNestedStringToken =
-        Array.isArray(content) &&
-        content.length === 1 &&
-        typeof content[0] === 'string';
-      const isNestedTokenArray = Array.isArray(content);
-
-      if (isStringToken) {
-        line.push({content: content as string, type});
-      } else if (isNestedStringToken) {
-        line.push({content: content[0] as string, type});
-      } else if (isNestedTokenArray) {
-        line.push(...getNormalizedTokens(content));
-      }
-    }
-
-    return line;
-  }, [] as NormalizedToken[]);
-}
-
 function getLineFromPoint(point: Point): LinedCodeLineNode | null {
   const pointNode = point.getNode();
 
@@ -63,11 +32,11 @@ function getLineFromPoint(point: Point): LinedCodeLineNode | null {
   return null;
 }
 
-export function getLinesFromSelection(selection: RangeSelection) {
+export function $getLinesFromSelection(selection: RangeSelection) {
   const anchor = selection.anchor;
   const focus = selection.focus;
 
-  const codeNode = getLinedCodeNode();
+  const codeNode = $getLinedCodeNode();
   const partialLineData = {} as PartialLinesFromSelection;
 
   partialLineData.topPoint = selection.isBackward() ? focus : anchor;
@@ -106,7 +75,7 @@ export function getLinesFromSelection(selection: RangeSelection) {
   return partialLineData;
 }
 
-export function getLinedCodeNode(): LinedCodeNode | null {
+export function $getLinedCodeNode(): LinedCodeNode | null {
   const selection = $getSelection();
 
   if ($isRangeSelection(selection)) {
@@ -132,6 +101,62 @@ export function getLinedCodeNode(): LinedCodeNode | null {
   return null;
 }
 
+export function $isStartOfFirstCodeLine(line: LinedCodeLineNode) {
+  const selection = $getSelection();
+
+  if ($isRangeSelection(selection)) {
+    const isCollapsed = selection.isCollapsed();
+
+    if (isCollapsed) {
+      const anchorLine = selection.anchor
+        .getNode()
+        .getParent() as LinedCodeLineNode;
+      const isLineSelected =
+        selection.anchor.key === line.getKey() ||
+        anchorLine.getKey() === line.getKey();
+
+      if (isLineSelected) {
+        const isFirstLine = line.getIndexWithinParent() === 0;
+        return isLineSelected && isFirstLine && selection.anchor.offset === 0;
+      }
+    }
+  }
+
+  return false;
+}
+
+export function $isEndOfLastCodeLine(line: LinedCodeLineNode) {
+  const selection = $getSelection();
+
+  if ($isRangeSelection(selection)) {
+    const anchor = selection.anchor;
+    const codeNode = line.getParent();
+
+    if ($isLinedCodeNode(codeNode)) {
+      const isLastLine =
+        line.getIndexWithinParent() === codeNode.getChildrenSize() - 1;
+
+      if (isLastLine) {
+        if (!line.isEmpty()) {
+          const lastChild = line.getLastChild();
+
+          if ($isLinedCodeHighlightNode(lastChild)) {
+            const isLastChild = anchor.key === lastChild.getKey();
+            const isLastOffset =
+              anchor.offset === lastChild.getTextContentSize();
+
+            return isLastChild && isLastOffset;
+          }
+        } else {
+          return anchor.offset === 0;
+        }
+      }
+    }
+  }
+
+  return false; // end of empty line
+}
+
 export function addOptionOrNull<T>(option: T | null) {
   const hasOption = option !== null && typeof option !== 'undefined';
   return hasOption ? option : null;
@@ -149,4 +174,35 @@ export function isTabOrSpace(char: string) {
   if (!isString || isMultipleCharacters) return false;
 
   return /[\t ]/.test(char);
+}
+
+export function getNormalizedTokens(
+  tokens: (string | Token)[],
+): NormalizedToken[] {
+  return tokens.reduce((line, token) => {
+    const isPlainText = typeof token === 'string';
+
+    if (isPlainText) {
+      line.push({content: token, type: undefined});
+    } else {
+      const {content, type} = token;
+
+      const isStringToken = typeof content === 'string';
+      const isNestedStringToken =
+        Array.isArray(content) &&
+        content.length === 1 &&
+        typeof content[0] === 'string';
+      const isNestedTokenArray = Array.isArray(content);
+
+      if (isStringToken) {
+        line.push({content: content as string, type});
+      } else if (isNestedStringToken) {
+        line.push({content: content[0] as string, type});
+      } else if (isNestedTokenArray) {
+        line.push(...getNormalizedTokens(content));
+      }
+    }
+
+    return line;
+  }, [] as NormalizedToken[]);
 }

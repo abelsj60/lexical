@@ -11,7 +11,7 @@ import {
   LinedCodeNodeOptions,
 } from './LinedCodeNode';
 import {DEFAULT_CODE_LANGUAGE, mapToPrismLanguage} from './Prism';
-import {getLinedCodeNode, addOptionOrDefault} from './utils';
+import {$getLinedCodeNode, addOptionOrDefault} from './utils';
 
 export function swapLinedCodeNodeForFullyConfiguredVersion(
   defaultOptions?: LinedCodeNodeOptions,
@@ -38,15 +38,21 @@ export function swapLinedCodeNodeForFullyConfiguredVersion(
           settings.addPreOnExportDOM,
           defaults.addPreOnExportDOM || false,
         ),
-        defaultLanguage: mapToPrismLanguage(
-          settings.defaultLanguage ||
-            defaults.defaultLanguage ||
-            DEFAULT_CODE_LANGUAGE,
+        defaultLanguage: addOptionOrDefault(
+          mapToPrismLanguage(
+            settings.defaultLanguage ||
+              defaults.defaultLanguage ||
+              DEFAULT_CODE_LANGUAGE,
+          ),
+          DEFAULT_CODE_LANGUAGE,
         ),
-        initialLanguage: mapToPrismLanguage(
-          settings.language ||
-            defaults.initialLanguage ||
-            DEFAULT_CODE_LANGUAGE,
+        initialLanguage: addOptionOrDefault(
+          mapToPrismLanguage(
+            settings.language ||
+              defaults.initialLanguage ||
+              DEFAULT_CODE_LANGUAGE,
+          ),
+          DEFAULT_CODE_LANGUAGE,
         ),
         isLockedBlock: addOptionOrDefault(
           settings.isLockedBlock,
@@ -72,7 +78,7 @@ function swapParagraphForLinedCodeLine() {
   return {
     replace: ParagraphNode,
     with: (node: ParagraphNode) => {
-      const codeNode = getLinedCodeNode();
+      const codeNode = $getLinedCodeNode();
 
       if ($isLinedCodeNode(codeNode)) {
         if (!codeNode.hasBreakOutLine()) {
@@ -89,7 +95,7 @@ function swapTextForLinedCodeHighlight() {
   return {
     replace: TextNode,
     with: (node: TextNode) => {
-      if ($isLinedCodeNode(getLinedCodeNode())) {
+      if ($isLinedCodeNode($getLinedCodeNode())) {
         return new LinedCodeHighlightNode(node.__text || '');
       }
 

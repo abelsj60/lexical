@@ -34,7 +34,7 @@ import {
 import {LinedCodeHighlightNode} from './LinedCodeHighlightNode';
 import {$isLinedCodeLineNode, LinedCodeLineNode} from './LinedCodeLineNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
-import {getLinedCodeNode, getLinesFromSelection} from './utils';
+import {$getLinedCodeNode, $getLinesFromSelection} from './utils';
 
 function removeHighlightsWithNoTextAfterImportJSON(
   highlightNode: LinedCodeHighlightNode,
@@ -61,7 +61,7 @@ function updateHighlightsWhenTyping(highlightNode: LinedCodeHighlightNode) {
 
       if ($isLinedCodeNode(codeNode)) {
         if (!codeNode.isLineCurrent(line)) {
-          const {topPoint} = getLinesFromSelection(selection);
+          const {topPoint} = $getLinesFromSelection(selection);
           // get lineOffset before update. it may change...
           const lineOffset = line.getLineOffset(topPoint);
 
@@ -85,7 +85,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
 
   return mergeRegister(
     editor.registerNodeTransform(LinedCodeHighlightNode, (node) => {
-      const codeNode = getLinedCodeNode();
+      const codeNode = $getLinedCodeNode();
 
       if ($isLinedCodeNode(codeNode)) {
         // editor update not doing much here. still using it
@@ -104,7 +104,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
     editor.registerCommand(
       CODE_TO_PLAIN_TEXT_COMMAND,
       () => {
-        const codeNode = getLinedCodeNode();
+        const codeNode = $getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
           return handlePlainTextConversion();
@@ -117,7 +117,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
     editor.registerCommand(
       TOGGLE_LINE_NUMBERS,
       () => {
-        const codeNode = getLinedCodeNode();
+        const codeNode = $getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
           codeNode.toggleLineNumbers();
@@ -131,7 +131,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
     editor.registerCommand(
       TOGGLE_TABS_COMMAND,
       () => {
-        const codeNode = getLinedCodeNode();
+        const codeNode = $getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
           codeNode.toggleTabs();
@@ -145,7 +145,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
     editor.registerCommand(
       UPDATE_THEME_COMMAND,
       (payload) => {
-        const codeNode = getLinedCodeNode();
+        const codeNode = $getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
           codeNode.updateTheme(payload);
@@ -163,7 +163,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
           payload instanceof InputEvent || payload instanceof KeyboardEvent
             ? null
             : payload.clipboardData;
-        const codeNode = getLinedCodeNode();
+        const codeNode = $getLinedCodeNode();
         const isPasteInternal =
           $isLinedCodeNode(codeNode) && clipboardData !== null;
 
@@ -199,7 +199,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
     editor.registerCommand(
       KEY_TAB_COMMAND,
       (payload) => {
-        const codeNode = getLinedCodeNode();
+        const codeNode = $getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
           if (codeNode.getSettings().activateTabs) {
@@ -224,7 +224,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
     editor.registerCommand(
       KEY_ARROW_UP_COMMAND,
       (payload) => {
-        const codeNode = getLinedCodeNode();
+        const codeNode = $getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
           if (!payload.altKey) {
@@ -241,7 +241,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
     editor.registerCommand(
       KEY_ARROW_DOWN_COMMAND,
       (payload) => {
-        const codeNode = getLinedCodeNode();
+        const codeNode = $getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
           if (!payload.altKey) {
@@ -258,7 +258,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
     editor.registerCommand(
       MOVE_TO_END,
       (payload) => {
-        const codeNode = getLinedCodeNode();
+        const codeNode = $getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
           return handleMoveTo('MOVE_TO_END', payload);
@@ -271,7 +271,7 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
     editor.registerCommand(
       MOVE_TO_START,
       (payload) => {
-        const codeNode = getLinedCodeNode();
+        const codeNode = $getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
           return handleMoveTo('MOVE_TO_START', payload);

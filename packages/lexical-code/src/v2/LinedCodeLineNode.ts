@@ -2,7 +2,6 @@
 // eslint-disable-next-line simple-import-sort/imports
 import {
   $getSelection,
-  $isNodeSelection,
   $isRangeSelection,
   $isTextNode,
   EditorConfig,
@@ -18,9 +17,8 @@ import {
   addClassNamesToElement,
   removeClassNamesFromElement,
 } from '../../../lexical-utils/src';
-import {$isLinedCodeHighlightNode} from './LinedCodeHighlightNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
-import {getLinesFromSelection, isTabOrSpace} from './utils';
+import {$getLinesFromSelection, isTabOrSpace} from './utils';
 
 type SerializedLinedCodeLineNode = Spread<
   {
@@ -56,311 +54,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     this.__discreteLineClasses = discreteLineClasses;
   }
 
-  getDiscreteLineClasses() {
-    return this.getLatest().__discreteLineClasses;
-  }
-
-  addDiscreteLineClasses(lineClasses: string): boolean {
-    const self = this.getLatest();
-    const writable = this.getWritable();
-    const discreteLineClasses = self.getDiscreteLineClasses();
-
-    if (discreteLineClasses) {
-      const splitDiscreteLineClasses = discreteLineClasses.split(' ');
-      const splitLineClasses = lineClasses.split(' ');
-      const nextClasses = splitLineClasses.reduce((list, nextLineClass) => {
-        const hasLineClass = splitDiscreteLineClasses.some(
-          (currentLineClass) => {
-            return currentLineClass === nextLineClass;
-          },
-        );
-
-        if (!hasLineClass) {
-          list.push(nextLineClass);
-          return list;
-        }
-
-        return list;
-      }, splitDiscreteLineClasses);
-
-      writable.__discreteLineClasses = nextClasses.join(' ');
-
-      return true;
-    }
-
-    return false;
-  }
-
-  removeDiscreteLineClasses(lineClasses: string): boolean {
-    const self = this.getLatest();
-    const writable = this.getWritable();
-    const discreteLineClasses = self.getDiscreteLineClasses();
-
-    if (discreteLineClasses) {
-      const splitDiscreteLineClasses = discreteLineClasses.split(' ');
-      const splitLineClasses = lineClasses.split(' ');
-      const nextClasses = splitLineClasses.reduce((list, nextLineClass) => {
-        // use toggle to remove line numbers, don't do it manually...
-        if (nextLineClass === 'show-line-numbers') {
-          return list;
-        }
-
-        const hasLineClass = list.some((currentLineClass) => {
-          return currentLineClass === nextLineClass;
-        });
-
-        if (hasLineClass) {
-          return list.filter((currentLineClass) => {
-            return currentLineClass !== nextLineClass;
-          });
-        }
-
-        return list;
-      }, splitDiscreteLineClasses);
-
-      writable.__discreteLineClasses = nextClasses.join(' ');
-
-      return true;
-    }
-
-    return false;
-  }
-
-  selectNext(anchorOffset?: number, focusOffset?: number) {
-    const self = this.getLatest();
-    const isEmpty = self.isEmpty();
-    const canSelectNextLinePosition =
-      typeof anchorOffset !== 'undefined' || isEmpty;
-
-    if (canSelectNextLinePosition) {
-      const canSelectCollapsedPoint =
-        typeof anchorOffset === 'number' && typeof focusOffset !== 'number';
-      const canSelectRange =
-        typeof anchorOffset === 'number' && typeof focusOffset === 'number';
-
-      if (isEmpty) {
-        return self.selectStart();
-      } else if (canSelectCollapsedPoint) {
-        const {childFromLineOffset: nextChild, updatedOffset: nextOffset} =
-          self.getChildFromLineOffset(anchorOffset);
-        const canSelectNewChild = nextChild && typeof nextOffset === 'number';
-
-        if (canSelectNewChild) {
-          return nextChild.select(nextOffset, nextOffset);
-        }
-      } else if (canSelectRange) {
-        const {childFromLineOffset: nextChildA, updatedOffset: nextOffsetA} =
-          self.getChildFromLineOffset(anchorOffset);
-        const {childFromLineOffset: nextChildB, updatedOffset: nextOffsetB} =
-          self.getChildFromLineOffset(focusOffset);
-
-        const canSelectA = nextChildA && typeof nextOffsetA === 'number';
-        const canSelectB = nextChildB && typeof nextOffsetB === 'number';
-
-        if (canSelectA && canSelectB) {
-          const selection = $getSelection();
-
-          if ($isRangeSelection(selection)) {
-            selection.anchor.set(
-              nextChildA.getKey(),
-              nextOffsetA,
-              $isTextNode(nextChildA) ? 'text' : 'element',
-            );
-            selection.focus.set(
-              nextChildB.getKey(),
-              nextOffsetB,
-              $isTextNode(nextChildB) ? 'text' : 'element',
-            );
-
-            return $getSelection();
-          }
-        }
-      }
-    }
-
-    return super.selectNext(anchorOffset, focusOffset);
-  }
-
-  getLineOffset(point: Point) {
-    const pointNode = point.getNode();
-    const isEmpty = $isLinedCodeLineNode(pointNode) && pointNode.isEmpty();
-
-    if (isEmpty) {
-      return 0;
-    }
-
-    const previousSiblings = point.getNode().getPreviousSiblings();
-
-    return (
-      point.offset +
-      previousSiblings.reduce((offset, _node) => {
-        return (offset += _node.getTextContentSize());
-      }, 0)
-    );
-  }
-
-  getChildFromLineOffset(lineOffset: number) {
-    const self = this.getLatest();
-    const children = self.getChildren();
-    let updatedOffset = lineOffset;
-
-    const childFromLineOffset = children.find((_node) => {
-      const textContentSize = _node.getTextContentSize();
-
-      if (textContentSize >= updatedOffset) {
-        return true;
-      }
-
-      updatedOffset -= textContentSize;
-
-      return false;
-    });
-
-    return {
-      childFromLineOffset,
-      updatedOffset: typeof updatedOffset === 'number' ? updatedOffset : null,
-    };
-  }
-
-  isEndOfLine() {
-    const selection = $getSelection();
-
-    if ($isRangeSelection(selection)) {
-      const self = this.getLatest();
-      const anchor = selection.anchor;
-      const lastChild = self.getLastChild();
-
-      if ($isLinedCodeHighlightNode(lastChild)) {
-        const isLastChild = anchor.key === lastChild.getKey();
-        const isLastOffset = anchor.offset === lastChild.getTextContentSize();
-
-        return isLastChild && isLastOffset;
-      }
-    }
-
-    return true; // end of empty line
-  }
-
-  isStartOfLine() {
-    const selection = $getSelection();
-
-    if (selection !== null && !$isNodeSelection(selection)) {
-      const isCollapsed = selection.isCollapsed();
-      const isOffsetZero = isCollapsed && selection.anchor.offset === 0;
-
-      return isOffsetZero;
-    }
-
-    return false;
-  }
-
-  isStartOfFirstLine() {
-    const self = this.getLatest();
-    const isStartOfLine = self.isStartOfLine();
-    const isFirstLine = self.getIndexWithinParent() === 0;
-
-    return isStartOfLine && isFirstLine;
-  }
-
-  isEndOfLastLine() {
-    const self = this.getLatest();
-    const codeNode = self.getParent();
-
-    if ($isLinedCodeNode(codeNode)) {
-      const childrenSize = codeNode.getChildrenSize();
-
-      const isEndOfLine = self.isEndOfLine();
-      const isLastLine = self.getIndexWithinParent() === childrenSize - 1;
-
-      return isEndOfLine && isLastLine;
-    }
-
-    return false;
-  }
-
-  getFirstCharacterIndex(lineOffset: number): number {
-    const self = this.getLatest();
-    const text = self.getTextContent();
-    const splitText = text.slice(0, lineOffset).split('');
-    const isAllSpaces = splitText.every((char) => {
-      return isTabOrSpace(char);
-    });
-
-    if (isAllSpaces) return splitText.length;
-
-    return splitText.findIndex((char) => {
-      return !isTabOrSpace(char);
-    });
-  }
-
-  collapseAtStart(): boolean {
-    const self = this.getLatest();
-    const codeNode = self.getParent();
-
-    if ($isLinedCodeNode(codeNode)) {
-      return codeNode.collapseAtStart();
-    }
-
-    return false;
-  }
-
-  insertNewAfter(): LinedCodeLineNode | ParagraphNode {
-    const self = this.getLatest();
-
-    const codeNode = self.getParent() as LinedCodeNode;
-
-    if (codeNode.hasBreakOutLine()) {
-      return codeNode.insertNewAfter();
-    }
-
-    const selection = $getSelection();
-
-    if ($isRangeSelection(selection)) {
-      const {
-        topPoint,
-        splitText = [],
-        topLine: line,
-        lineRange: linesForUpdate,
-      } = getLinesFromSelection(selection);
-
-      if ($isLinedCodeLineNode(line) && Array.isArray(linesForUpdate)) {
-        const newLine = $createLinedCodeLineNode();
-
-        const lineOffset = line.getLineOffset(topPoint);
-        const firstCharacterIndex = line.getFirstCharacterIndex(lineOffset);
-        const lineSpacers =
-          firstCharacterIndex > 0
-            ? line.getTextContent().slice(0, firstCharacterIndex)
-            : '';
-        const [beforeSplit, afterSplit] = splitText;
-        const shouldTrimEnd = afterSplit
-          .slice(0, lineSpacers.length)
-          .split('')
-          .every((char) => {
-            return isTabOrSpace(char);
-          });
-        const afterSplitAndSpacers = `${lineSpacers}${
-          shouldTrimEnd ? afterSplit.trimEnd() : afterSplit
-        }`;
-        const code = codeNode.getHighlightNodes(afterSplitAndSpacers);
-
-        newLine.append(...code);
-
-        line.insertAfter(newLine);
-        codeNode.replaceLineCode(beforeSplit, line);
-        linesForUpdate.slice(1).forEach((ln) => ln.remove());
-
-        const hasChildren = newLine.getChildrenSize() > 0;
-
-        newLine.setDirection(self.getDirection());
-        newLine.selectNext(hasChildren ? lineSpacers.length : 0);
-
-        return newLine;
-      }
-    }
-
-    return $createLinedCodeLineNode();
-  }
+  // View
 
   createDOM(config: EditorConfig): HTMLElement {
     const dom = document.createElement('div');
@@ -454,10 +148,6 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     return false;
   }
 
-  getLineNumber() {
-    return this.getLatest().getIndexWithinParent() + 1;
-  }
-
   static importJSON(
     serializedNode: SerializedLinedCodeLineNode,
   ): LinedCodeLineNode {
@@ -473,6 +163,264 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
       type: 'code-line',
       version: 1,
     };
+  }
+
+  // Mutation
+
+  collapseAtStart(): boolean {
+    const self = this.getLatest();
+    const codeNode = self.getParent();
+
+    if ($isLinedCodeNode(codeNode)) {
+      return codeNode.collapseAtStart();
+    }
+
+    return false;
+  }
+
+  insertNewAfter(): LinedCodeLineNode | ParagraphNode {
+    const self = this.getLatest();
+
+    const codeNode = self.getParent() as LinedCodeNode;
+
+    if (codeNode.hasBreakOutLine()) {
+      return codeNode.insertNewAfter();
+    }
+
+    const selection = $getSelection();
+
+    if ($isRangeSelection(selection)) {
+      const {
+        topPoint,
+        splitText = [],
+        topLine: line,
+        lineRange: linesForUpdate,
+      } = $getLinesFromSelection(selection);
+
+      if ($isLinedCodeLineNode(line) && Array.isArray(linesForUpdate)) {
+        const newLine = $createLinedCodeLineNode();
+
+        const lineOffset = line.getLineOffset(topPoint);
+        const firstCharacterIndex = line.getFirstCharacterIndex(lineOffset);
+        const lineSpacers =
+          firstCharacterIndex > 0
+            ? line.getTextContent().slice(0, firstCharacterIndex)
+            : '';
+        const [beforeSplit, afterSplit] = splitText;
+        const shouldTrimEnd = afterSplit
+          .slice(0, lineSpacers.length)
+          .split('')
+          .every((char) => {
+            return isTabOrSpace(char);
+          });
+        const afterSplitAndSpacers = `${lineSpacers}${
+          shouldTrimEnd ? afterSplit.trimEnd() : afterSplit
+        }`;
+        const code = codeNode.getHighlightNodes(afterSplitAndSpacers);
+
+        newLine.append(...code);
+
+        line.insertAfter(newLine);
+        codeNode.replaceLineCode(beforeSplit, line);
+        linesForUpdate.slice(1).forEach((ln) => ln.remove());
+
+        const hasChildren = newLine.getChildrenSize() > 0;
+
+        newLine.setDirection(self.getDirection());
+        newLine.selectNext(hasChildren ? lineSpacers.length : 0);
+
+        return newLine;
+      }
+    }
+
+    return $createLinedCodeLineNode();
+  }
+
+  selectNext(anchorOffset?: number, focusOffset?: number) {
+    const self = this.getLatest();
+    const isEmpty = self.isEmpty();
+    const canSelectNextLinePosition =
+      typeof anchorOffset !== 'undefined' || isEmpty;
+
+    if (canSelectNextLinePosition) {
+      const canSelectCollapsedPoint =
+        typeof anchorOffset === 'number' && typeof focusOffset !== 'number';
+      const canSelectRange =
+        typeof anchorOffset === 'number' && typeof focusOffset === 'number';
+
+      if (isEmpty) {
+        return self.selectStart();
+      } else if (canSelectCollapsedPoint) {
+        const {childFromLineOffset: nextChild, updatedOffset: nextOffset} =
+          self.getChildFromLineOffset(anchorOffset);
+        const canSelectNewChild = nextChild && typeof nextOffset === 'number';
+
+        if (canSelectNewChild) {
+          return nextChild.select(nextOffset, nextOffset);
+        }
+      } else if (canSelectRange) {
+        const {childFromLineOffset: nextChildA, updatedOffset: nextOffsetA} =
+          self.getChildFromLineOffset(anchorOffset);
+        const {childFromLineOffset: nextChildB, updatedOffset: nextOffsetB} =
+          self.getChildFromLineOffset(focusOffset);
+
+        const canSelectA = nextChildA && typeof nextOffsetA === 'number';
+        const canSelectB = nextChildB && typeof nextOffsetB === 'number';
+
+        if (canSelectA && canSelectB) {
+          const selection = $getSelection();
+
+          if ($isRangeSelection(selection)) {
+            selection.anchor.set(
+              nextChildA.getKey(),
+              nextOffsetA,
+              $isTextNode(nextChildA) ? 'text' : 'element',
+            );
+            selection.focus.set(
+              nextChildB.getKey(),
+              nextOffsetB,
+              $isTextNode(nextChildB) ? 'text' : 'element',
+            );
+
+            return $getSelection();
+          }
+        }
+      }
+    }
+
+    return super.selectNext(anchorOffset, focusOffset);
+  }
+
+  addDiscreteLineClasses(lineClasses: string): boolean {
+    const self = this.getLatest();
+    const writable = this.getWritable();
+    const discreteLineClasses = self.getDiscreteLineClasses();
+
+    if (discreteLineClasses) {
+      const splitDiscreteLineClasses = discreteLineClasses.split(' ');
+      const splitLineClasses = lineClasses.split(' ');
+      const nextClasses = splitLineClasses.reduce((list, nextLineClass) => {
+        const hasLineClass = splitDiscreteLineClasses.some(
+          (currentLineClass) => {
+            return currentLineClass === nextLineClass;
+          },
+        );
+
+        if (!hasLineClass) {
+          list.push(nextLineClass);
+          return list;
+        }
+
+        return list;
+      }, splitDiscreteLineClasses);
+
+      writable.__discreteLineClasses = nextClasses.join(' ');
+
+      return true;
+    }
+
+    return false;
+  }
+
+  removeDiscreteLineClasses(lineClasses: string): boolean {
+    const self = this.getLatest();
+    const writable = this.getWritable();
+    const discreteLineClasses = self.getDiscreteLineClasses();
+
+    if (discreteLineClasses) {
+      const splitDiscreteLineClasses = discreteLineClasses.split(' ');
+      const splitLineClasses = lineClasses.split(' ');
+      const nextClasses = splitLineClasses.reduce((list, nextLineClass) => {
+        // use toggle to remove line numbers, don't do it manually...
+        if (nextLineClass === 'show-line-numbers') {
+          return list;
+        }
+
+        const hasLineClass = list.some((currentLineClass) => {
+          return currentLineClass === nextLineClass;
+        });
+
+        if (hasLineClass) {
+          return list.filter((currentLineClass) => {
+            return currentLineClass !== nextLineClass;
+          });
+        }
+
+        return list;
+      }, splitDiscreteLineClasses);
+
+      writable.__discreteLineClasses = nextClasses.join(' ');
+
+      return true;
+    }
+
+    return false;
+  }
+
+  // Helpers
+
+  getDiscreteLineClasses() {
+    return this.getLatest().__discreteLineClasses;
+  }
+
+  getLineOffset(point: Point) {
+    const pointNode = point.getNode();
+    const isEmpty = $isLinedCodeLineNode(pointNode) && pointNode.isEmpty();
+
+    if (isEmpty) {
+      return 0;
+    }
+
+    const previousSiblings = point.getNode().getPreviousSiblings();
+
+    return (
+      point.offset +
+      previousSiblings.reduce((offset, _node) => {
+        return (offset += _node.getTextContentSize());
+      }, 0)
+    );
+  }
+
+  getChildFromLineOffset(lineOffset: number) {
+    const self = this.getLatest();
+    const children = self.getChildren();
+    let updatedOffset = lineOffset;
+
+    const childFromLineOffset = children.find((_node) => {
+      const textContentSize = _node.getTextContentSize();
+
+      if (textContentSize >= updatedOffset) {
+        return true;
+      }
+
+      updatedOffset -= textContentSize;
+
+      return false;
+    });
+
+    return {
+      childFromLineOffset,
+      updatedOffset: typeof updatedOffset === 'number' ? updatedOffset : null,
+    };
+  }
+
+  getFirstCharacterIndex(lineOffset: number): number {
+    const self = this.getLatest();
+    const text = self.getTextContent();
+    const splitText = text.slice(0, lineOffset).split('');
+    const isAllSpaces = splitText.every((char) => {
+      return isTabOrSpace(char);
+    });
+
+    if (isAllSpaces) return splitText.length;
+
+    return splitText.findIndex((char) => {
+      return !isTabOrSpace(char);
+    });
+  }
+
+  getLineNumber() {
+    return this.getLatest().getIndexWithinParent() + 1;
   }
 
   extractWithChild(): boolean {

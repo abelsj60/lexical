@@ -33,7 +33,7 @@ import {
 } from './LinedCodeLineNode';
 
 import {
-  getLinesFromSelection,
+  $getLinesFromSelection,
   getNormalizedTokens,
   addOptionOrNull,
 } from './utils';
@@ -87,8 +87,8 @@ type SerializedCodeNodeN = Spread<
 
 const LANGUAGE_DATA_ATTRIBUTE = 'data-highlight-language';
 
-// reorder methods and review naming
 // test commands?
+// dent bug on empty line when backwards...
 
 export class LinedCodeNode extends ElementNode {
   /** @internal */
@@ -318,39 +318,6 @@ export class LinedCodeNode extends ElementNode {
     };
   }
 
-  hasBreakOutLine(): boolean {
-    const self = this.getLatest();
-
-    if (!self.getSettings().isLockedBlock) {
-      const selection = $getSelection();
-
-      if ($isRangeSelection(selection)) {
-        const anchorNode = selection.anchor.getNode();
-        const lastLine = self.getLastChild<LinedCodeLineNode>();
-        const isLastLineSelected =
-          lastLine !== null && anchorNode.getKey() === lastLine.getKey();
-        const isSelectedLastLineEmpty =
-          isLastLineSelected && lastLine.isEmpty();
-
-        if (isSelectedLastLineEmpty) {
-          const previousLine = lastLine.getPreviousSibling<LinedCodeLineNode>();
-          return previousLine !== null && previousLine.isEmpty();
-        }
-      }
-    }
-
-    return false;
-  }
-
-  splitLineText(lineOffset: number, line: LinedCodeLineNode) {
-    const lineText = line.getTextContent();
-
-    const textBeforeSplit = lineText.slice(0, lineOffset);
-    const textAfterSplit = lineText.slice(lineOffset, lineText.length);
-
-    return [textBeforeSplit, textAfterSplit];
-  }
-
   // Mutation
   insertNewAfter(): ParagraphNode {
     const self = this.getLatest();
@@ -405,54 +372,6 @@ export class LinedCodeNode extends ElementNode {
     return false;
   }
 
-  tokenizePlainText(plainText: string): (string | Token)[] {
-    const self = this.getLatest();
-    const {language, tokenizer} = self.getSettings();
-    const tokenize = (tokenizer as Tokenizer).tokenize;
-
-    return tokenize(plainText, language as string);
-  }
-
-  getNormalizedTokens(plainText: string): NormalizedToken[] {
-    // this allows for diffing w/o wasting node keys
-    if (plainText.length === 0) return [];
-
-    const self = this.getLatest();
-    const tokens = self.tokenizePlainText(plainText);
-
-    return getNormalizedTokens(tokens);
-  }
-
-  getHighlightNodes(text: string): LinedCodeHighlightNode[] {
-    if (text.length === 0) return [];
-
-    const self = this.getLatest();
-    const normalizedTokens = self.getNormalizedTokens(text);
-
-    return normalizedTokens.map((token) => {
-      return $createLinedCodeHighlightNode(token.content, token.type);
-    });
-  }
-
-  isLineCurrent(line: LinedCodeLineNode): boolean {
-    const self = this.getLatest();
-    const text = line.getTextContent();
-    const normalizedTokens = self.getNormalizedTokens(text);
-    const children = line.getChildren() as LinedCodeHighlightNode[];
-
-    // why? empty text strings can cause length mismatch on paste
-    if (children.length !== normalizedTokens.length) return false;
-
-    return children.every((child, idx) => {
-      const expected = normalizedTokens[idx];
-
-      return (
-        child.__highlightType === expected.type &&
-        child.__text === expected.content
-      );
-    });
-  }
-
   insertRawText(
     rawText: string,
     startIndex?: number,
@@ -484,10 +403,6 @@ export class LinedCodeNode extends ElementNode {
     }
 
     return codeLines;
-  }
-
-  canIndent() {
-    return false;
   }
 
   convertToPlainText(): boolean {
@@ -549,7 +464,7 @@ export class LinedCodeNode extends ElementNode {
           topLine: line,
           lineRange: linesForUpdate,
           splitText,
-        } = getLinesFromSelection(selection);
+        } = $getLinesFromSelection(selection);
 
         if ($isLinedCodeLineNode(line)) {
           const lexicalNodes: LexicalNode[] = [];
@@ -599,13 +514,6 @@ export class LinedCodeNode extends ElementNode {
     return false;
   }
 
-  getTextContent(): string {
-    const self = this.getLatest();
-    const children = self.getChildren();
-
-    return self.getRawText(children);
-  }
-
   setLanguage(language: string): boolean {
     const self = this.getLatest();
     const writable = self.getWritable();
@@ -619,14 +527,6 @@ export class LinedCodeNode extends ElementNode {
     }
 
     return false;
-  }
-
-  getLanguage() {
-    return this.getLatest().__language;
-  }
-
-  getLineNumberStatus() {
-    return this.getLatest().__lineNumbers;
   }
 
   toggleLineNumbers() {
@@ -656,6 +556,117 @@ export class LinedCodeNode extends ElementNode {
     };
 
     return writable.__theme;
+  }
+
+  updateLines(): boolean {
+    const self = this.getLatest();
+    let isUpdated = false;
+
+    self.getChildren().forEach((line) => {
+      if ($isLinedCodeLineNode(line)) {
+        self.updateLineCode(line);
+
+        if (!isUpdated) {
+          isUpdated = true;
+        }
+      }
+    });
+
+    return isUpdated;
+  }
+
+  // Helpers
+
+  hasBreakOutLine(): boolean {
+    const self = this.getLatest();
+
+    if (!self.getSettings().isLockedBlock) {
+      const selection = $getSelection();
+
+      if ($isRangeSelection(selection)) {
+        const anchorNode = selection.anchor.getNode();
+        const lastLine = self.getLastChild<LinedCodeLineNode>();
+        const isLastLineSelected =
+          lastLine !== null && anchorNode.getKey() === lastLine.getKey();
+        const isSelectedLastLineEmpty =
+          isLastLineSelected && lastLine.isEmpty();
+
+        if (isSelectedLastLineEmpty) {
+          const previousLine = lastLine.getPreviousSibling<LinedCodeLineNode>();
+          return previousLine !== null && previousLine.isEmpty();
+        }
+      }
+    }
+
+    return false;
+  }
+
+  splitLineText(lineOffset: number, line: LinedCodeLineNode) {
+    const lineText = line.getTextContent();
+
+    const textBeforeSplit = lineText.slice(0, lineOffset);
+    const textAfterSplit = lineText.slice(lineOffset, lineText.length);
+
+    return [textBeforeSplit, textAfterSplit];
+  }
+
+  tokenizePlainText(plainText: string): (string | Token)[] {
+    const self = this.getLatest();
+    const {language, tokenizer} = self.getSettings();
+    const tokenize = (tokenizer as Tokenizer).tokenize;
+
+    return tokenize(plainText, language as string);
+  }
+
+  getNormalizedTokens(plainText: string): NormalizedToken[] {
+    // this allows for diffing w/o wasting node keys
+    if (plainText.length === 0) return [];
+
+    const self = this.getLatest();
+    const tokens = self.tokenizePlainText(plainText);
+
+    return getNormalizedTokens(tokens);
+  }
+
+  getHighlightNodes(text: string): LinedCodeHighlightNode[] {
+    if (text.length === 0) return [];
+
+    const self = this.getLatest();
+    const normalizedTokens = self.getNormalizedTokens(text);
+
+    return normalizedTokens.map((token) => {
+      return $createLinedCodeHighlightNode(token.content, token.type);
+    });
+  }
+
+  isLineCurrent(line: LinedCodeLineNode): boolean {
+    const self = this.getLatest();
+    const text = line.getTextContent();
+    const normalizedTokens = self.getNormalizedTokens(text);
+    const children = line.getChildren() as LinedCodeHighlightNode[];
+
+    // why? empty text strings can cause length mismatch on paste
+    if (children.length !== normalizedTokens.length) return false;
+
+    return children.every((child, idx) => {
+      const expected = normalizedTokens[idx];
+
+      return (
+        child.__highlightType === expected.type &&
+        child.__text === expected.content
+      );
+    });
+  }
+
+  getTextContent(): string {
+    const self = this.getLatest();
+    const children = self.getChildren();
+
+    return self.getRawText(children);
+  }
+
+  getLanguage() {
+    return this.getLatest().__language;
   }
 
   getSettings(): Omit<LinedCodeNodeOptions, 'initialLanguage'> & {
@@ -731,21 +742,8 @@ export class LinedCodeNode extends ElementNode {
     return rawText;
   }
 
-  updateLines(): boolean {
-    const self = this.getLatest();
-    let isUpdated = false;
-
-    self.getChildren().forEach((line) => {
-      if ($isLinedCodeLineNode(line)) {
-        self.updateLineCode(line);
-
-        if (!isUpdated) {
-          isUpdated = true;
-        }
-      }
-    });
-
-    return isUpdated;
+  canIndent() {
+    return false;
   }
 
   isShadowRoot(): boolean {

@@ -18,7 +18,7 @@ import {
   removeClassNamesFromElement,
 } from '../../../lexical-utils/src';
 import {$isLinedCodeNode} from './LinedCodeNode';
-import {getLinedCodeNode} from './utils';
+import {$getLinedCodeNode} from './utils';
 
 type SerializedLinedCodeHighlightNode = Spread<
   {
@@ -62,7 +62,7 @@ export class LinedCodeHighlightNode extends TextNode {
 
   createDOM(config: EditorConfig): HTMLElement {
     const self = this.getLatest();
-    const codeNode = getLinedCodeNode();
+    const codeNode = $getLinedCodeNode();
     let highlightTheme = config.theme;
 
     if ($isLinedCodeNode(codeNode)) {
@@ -92,7 +92,7 @@ export class LinedCodeHighlightNode extends TextNode {
     const update = super.updateDOM(prevNode, dom, config);
 
     const self = this.getLatest();
-    const codeNode = getLinedCodeNode();
+    const codeNode = $getLinedCodeNode();
     let highlightTheme = config.theme;
 
     if ($isLinedCodeNode(codeNode)) {

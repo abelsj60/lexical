@@ -12,7 +12,12 @@ import {
 import {$isLinedCodeHighlightNode} from './LinedCodeHighlightNode';
 import {$isLinedCodeLineNode, LinedCodeLineNode} from './LinedCodeLineNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
-import {getLinedCodeNode, getLinesFromSelection} from './utils';
+import {
+  $isEndOfLastCodeLine,
+  $isStartOfFirstCodeLine,
+  $getLinedCodeNode,
+  $getLinesFromSelection,
+} from './utils';
 
 type ArrowTypes = 'KEY_ARROW_UP_COMMAND' | 'KEY_ARROW_DOWN_COMMAND';
 type DentTypes = 'INDENT_CONTENT_COMMAND' | 'OUTDENT_CONTENT_COMMAND';
@@ -120,7 +125,7 @@ export function handleDents(type: DentTypes): boolean {
     topPoint,
     bottomPoint,
     lineRange: linesForUpdate,
-  } = getLinesFromSelection(selection);
+  } = $getLinesFromSelection(selection);
 
   const isValid =
     $isLinedCodeLineNode(topLine) &&
@@ -165,7 +170,7 @@ export function handleBorders(type: ArrowTypes, event: KeyboardEvent): boolean {
 
   if (!$isRangeSelection(selection) || !selection.isCollapsed()) return false;
 
-  const {topLine: line} = getLinesFromSelection(selection);
+  const {topLine: line} = $getLinesFromSelection(selection);
 
   if ($isLinedCodeLineNode(line)) {
     const codeNode = line.getParent();
@@ -174,13 +179,13 @@ export function handleBorders(type: ArrowTypes, event: KeyboardEvent): boolean {
       if (!codeNode.getSettings().isLockedBlock) {
         const isArrowUp = type === 'KEY_ARROW_UP_COMMAND';
 
-        if (isArrowUp && line.isStartOfFirstLine()) {
+        if (isArrowUp && $isStartOfFirstCodeLine(line)) {
           if (codeNode.getPreviousSibling() === null) {
             event.preventDefault();
             codeNode.selectPrevious();
             return true;
           }
-        } else if (!isArrowUp && line.isEndOfLastLine()) {
+        } else if (!isArrowUp && $isEndOfLastCodeLine(line)) {
           if (codeNode.getNextSibling() === null) {
             event.preventDefault();
             codeNode.selectNext();
@@ -241,7 +246,7 @@ export function handleShiftingLines(
     bottomLine,
     topPoint,
     lineRange: linesForUpdate,
-  } = getLinesFromSelection(selection);
+  } = $getLinesFromSelection(selection);
   const isArrowUp = type === 'KEY_ARROW_UP_COMMAND';
   const isCollapsed = selection.isCollapsed();
 
@@ -310,7 +315,7 @@ export function handleMoveTo(type: MoveTypes, event: KeyboardEvent): boolean {
     return false;
   }
 
-  const {topLine: line} = getLinesFromSelection(selection);
+  const {topLine: line} = $getLinesFromSelection(selection);
 
   if ($isLinedCodeLineNode(line)) {
     const isMoveToStart = type === 'MOVE_TO_START';
@@ -318,7 +323,7 @@ export function handleMoveTo(type: MoveTypes, event: KeyboardEvent): boolean {
     event.preventDefault();
     event.stopPropagation();
 
-    const {topPoint} = getLinesFromSelection(selection);
+    const {topPoint} = $getLinesFromSelection(selection);
     const lineOffset = line.getLineOffset(topPoint);
     const firstCharacterIndex = line.getFirstCharacterIndex(lineOffset);
     const lastCharacterIndex = line.getTextContentSize();
@@ -340,7 +345,7 @@ export function handlePlainTextConversion(): boolean {
   const selection = $getSelection();
 
   if ($isRangeSelection(selection)) {
-    const codeNode = getLinedCodeNode();
+    const codeNode = $getLinedCodeNode();
 
     if ($isLinedCodeNode(codeNode)) {
       const parent = codeNode.getParent();
