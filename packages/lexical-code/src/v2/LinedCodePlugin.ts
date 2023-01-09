@@ -20,6 +20,7 @@ import {
 } from 'lexical';
 import {
   CODE_TO_PLAIN_TEXT_COMMAND,
+  TOGGLE_IS_LOCKED_BLOCK,
   TOGGLE_LINE_NUMBERS,
   TOGGLE_TABS_COMMAND,
   UPDATE_THEME_COMMAND,
@@ -41,8 +42,9 @@ function removeHighlightsWithNoTextAfterImportJSON(
 ) {
   // needed because exportJSON may export an empty highlight node when
   // it has a length of one. exportDOM is fixed via a patch in export
-  // algorithm. we can't handle the JSON version in a mutation b/c
-  // it destroys history (it stops working after .remove)
+  // algorithm. exportJSON seems harder to patch. further, we can't
+  // fix it in a 'created' mutation as this seems to destroy
+  // history (it stops working after we use .remove).
   const isBlankString = highlightNode.getTextContent() === '';
 
   if (isBlankString) {
@@ -106,6 +108,20 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
 
         if ($isLinedCodeNode(codeNode)) {
           return handlePlainTextConversion();
+        }
+
+        return false;
+      },
+      COMMAND_PRIORITY_LOW,
+    ),
+    editor.registerCommand(
+      TOGGLE_IS_LOCKED_BLOCK,
+      () => {
+        const codeNode = $getLinedCodeNode();
+
+        if ($isLinedCodeNode(codeNode)) {
+          codeNode.toggleLineNumbers();
+          return true;
         }
 
         return false;

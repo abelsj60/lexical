@@ -144,8 +144,9 @@ export class LinedCodeTextNode extends TextNode {
 
     if (element) {
       const isBlankString = element.innerText === '';
-      // if the point is at the last character of a line, Lexical
-      // will pick up the last highlightNode with a blank string
+      // If the point is at the last character of a line, Lexical
+      // will create a highlightNode with a blank string ('').
+      // This is no good, so we counteract it here.
       const hasPreviousSiblings = this.getPreviousSiblings().length > 0;
 
       if (isBlankString && hasPreviousSiblings) {

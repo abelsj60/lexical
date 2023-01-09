@@ -115,7 +115,7 @@
 }
 .code-line-number:before {
   color: #777;
-  content: attr(line-number);
+  content: attr(data-line-number);
   left: 0px;
   min-width: 33px;
   position: absolute;

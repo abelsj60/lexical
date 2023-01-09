@@ -83,11 +83,9 @@ export const getCodeLanguages = (): Array<string> =>
     )
     .sort();
 
-export const mapToPrismLanguage = (
-  language: string | undefined,
-): string | undefined => {
+export const mapToPrismLanguage = (language?: string): string | undefined => {
   // eslint-disable-next-line no-prototype-builtins
-  return language != null && Prism.languages.hasOwnProperty(language)
+  return language && Prism.languages.hasOwnProperty(language)
     ? language
     : undefined;
 };

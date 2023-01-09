@@ -82,8 +82,6 @@ type SerializedCodeNodeN = Spread<
 
 const LANGUAGE_DATA_ATTRIBUTE = 'data-highlight-language';
 
-// test commands? and adding discrete line classes...!
-
 export class LinedCodeNode extends ElementNode {
   /** @internal */
   __activateTabs: boolean | null;
@@ -109,6 +107,8 @@ export class LinedCodeNode extends ElementNode {
   static clone(node: LinedCodeNode): LinedCodeNode {
     return new LinedCodeNode(node.getSettingsForCloning(), node.__key);
   }
+
+  // TEST COMMANDS
 
   constructor(options?: LinedCodeNodeOptions, key?: NodeKey) {
     const {
@@ -151,7 +151,7 @@ export class LinedCodeNode extends ElementNode {
 
   createDOM(config: EditorConfig): HTMLElement {
     const self = this.getLatest();
-    const element = document.createElement('code');
+    const dom = document.createElement('code');
     const {theme} = self.getSettings();
     let codeBlockClasses = config.theme.code;
 
@@ -159,15 +159,18 @@ export class LinedCodeNode extends ElementNode {
       codeBlockClasses = theme.code;
     }
 
-    addClassNamesToElement(element, codeBlockClasses);
-    element.setAttribute('spellcheck', 'false');
+    addClassNamesToElement(dom, codeBlockClasses);
+
+    // copacetic place to set this?
+    dom.setAttribute('spellcheck', 'false');
+
     const {language} = self.getSettings();
 
     if (language) {
-      element.setAttribute(LANGUAGE_DATA_ATTRIBUTE, language);
+      dom.setAttribute(LANGUAGE_DATA_ATTRIBUTE, language);
     }
 
-    return element;
+    return dom;
   }
 
   updateDOM(
@@ -297,9 +300,6 @@ export class LinedCodeNode extends ElementNode {
 
   static importJSON(serializedNode: SerializedCodeNodeN): LinedCodeNode {
     const node = $createLinedCodeNode(serializedNode.options);
-    node.setFormat(serializedNode.format); // TODO: kill?
-    node.setIndent(serializedNode.indent); // TODO: kill?
-    node.setDirection(serializedNode.direction); // TODO: kill?
     return node;
   }
 
@@ -521,6 +521,15 @@ export class LinedCodeNode extends ElementNode {
     }
 
     return false;
+  }
+
+  toggleIsLockedBlock() {
+    // TOGGLE_IS_LOCKED_BLOCK
+    const writable = this.getWritable();
+
+    writable.__isLockedBlock = !writable.__isLockedBlock;
+
+    return writable.__isLockedBlock;
   }
 
   toggleLineNumbers() {

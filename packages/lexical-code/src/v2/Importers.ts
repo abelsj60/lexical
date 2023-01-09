@@ -1,5 +1,5 @@
 /* eslint-disable header/header */
-import {DOMConversionOutput} from 'packages/lexical/src';
+import {DOMConversionOutput} from 'lexical';
 
 import {$createLinedCodeNode} from './LinedCodeNode';
 

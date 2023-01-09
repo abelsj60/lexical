@@ -285,7 +285,7 @@ function BlockFormatDropDown({
           }
 
           if ($isLinedCodeLineNode(firstLine)) {
-            firstLine.nextSelection(isCollpased ? originalOffset : 0);
+            firstLine.selectNext(isCollpased ? originalOffset : 0);
           }
         }
       });

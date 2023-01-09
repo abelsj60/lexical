@@ -67,7 +67,6 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
 
     if ($isLinedCodeNode(codeNode)) {
       const {lineNumbers, theme} = codeNode.getSettings();
-      const direction = self.getDirection();
 
       if (theme && theme.codeLine && theme.codeLine.classes) {
         lineClasses = `${lineClasses} ${theme.codeLine.classes}`;
@@ -83,12 +82,8 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
         }
       }
 
-      if (direction !== null && config.theme[direction]) {
-        lineClasses = `${lineClasses} ${config.theme[direction]}`;
-      }
-
       addClassNamesToElement(dom, lineClasses);
-      dom.setAttribute('line-number', String(self.getLineNumber()));
+      dom.setAttribute('data-line-number', String(self.getLineNumber()));
     }
 
     return dom;
@@ -99,8 +94,6 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     dom: HTMLElement,
     config: EditorConfig,
   ): boolean {
-    const update = super.updateDOM(prevNode, dom);
-
     const self = this.getLatest();
     const codeNode = self.getParent();
 
@@ -109,7 +102,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     if ($isLinedCodeNode(codeNode)) {
       const {theme} = codeNode.getSettings();
       const nextLineNumber = String(self.getLineNumber());
-      const prevLineNumber = dom.getAttribute('line-number');
+      const prevLineNumber = dom.getAttribute('data-line-number');
       const prevClasses = dom.className;
       const direction = self.getDirection();
 
@@ -140,10 +133,8 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
       }
 
       if (prevLineNumber !== nextLineNumber) {
-        dom.setAttribute('line-number', nextLineNumber);
+        dom.setAttribute('data-line-number', nextLineNumber);
       }
-
-      return update;
     }
 
     return false;
@@ -234,6 +225,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
       }
     }
 
+    // never called, here for ts...
     return $createLinedCodeLineNode();
   }
 
