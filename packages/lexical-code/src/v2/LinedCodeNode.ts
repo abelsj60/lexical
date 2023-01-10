@@ -370,7 +370,6 @@ export class LinedCodeNode extends ElementNode {
     self.splice(start, delCount, codeLines);
 
     if (selectEnd) {
-      // TODO: re-eval
       const lastLine = self.getLastChild();
 
       if ($isLinedCodeLineNode(lastLine)) {
