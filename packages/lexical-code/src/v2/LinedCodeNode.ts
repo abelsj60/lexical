@@ -313,11 +313,11 @@ export class LinedCodeNode extends ElementNode {
   }
 
   append(...nodesToAppend: LexicalNode[]): this {
-    const isCodeLines = nodesToAppend.every((node) => {
+    const isAllCodeLines = nodesToAppend.every((node) => {
       return $isLinedCodeLineNode(node);
     });
 
-    if (isCodeLines) {
+    if (isAllCodeLines) {
       return super.append(...nodesToAppend);
     }
 
@@ -382,7 +382,7 @@ export class LinedCodeNode extends ElementNode {
   }
 
   convertToPlainText(): boolean {
-    // CODE_TO_PLAIN_TEXT_COMMAND
+    // cmd: CODE_TO_PLAIN_TEXT_COMMAND
     const root = $getRoot();
 
     if ($isRootNode(root)) {
@@ -491,13 +491,14 @@ export class LinedCodeNode extends ElementNode {
   }
 
   setLanguage(language: string): boolean {
+    // cmd: SET_LANGUAGE_COMMAND
     const self = this.getLatest();
     const writable = self.getWritable();
     const nextLanguage = mapToPrismLanguage(language);
 
     if (nextLanguage) {
       writable.__language = nextLanguage;
-      self.updateLines(); // keep kids current
+      self.updateEveryLine(); // keep kids current
 
       return true;
     }
@@ -506,7 +507,7 @@ export class LinedCodeNode extends ElementNode {
   }
 
   toggleIsLockedBlock() {
-    // TOGGLE_IS_LOCKED_BLOCK
+    // cmd: TOGGLE_IS_LOCKED_BLOCK
     const writable = this.getWritable();
 
     writable.__isLockedBlock = !writable.__isLockedBlock;
@@ -515,7 +516,7 @@ export class LinedCodeNode extends ElementNode {
   }
 
   toggleLineNumbers() {
-    // TOGGLE_LINE_NUMBERS_COMMAND
+    // cmd: TOGGLE_LINE_NUMBERS_COMMAND
     const writable = this.getWritable();
 
     writable.__lineNumbers = !writable.__lineNumbers;
@@ -524,7 +525,7 @@ export class LinedCodeNode extends ElementNode {
   }
 
   toggleTabs() {
-    // TOGGLE_TABS_COMMAND
+    // cmd: TOGGLE_TABS_COMMAND
     const writable = this.getWritable();
 
     writable.__activateTabs = !writable.__activateTabs;
@@ -533,7 +534,7 @@ export class LinedCodeNode extends ElementNode {
   }
 
   updateTheme(nextClasses: LinedCodeNodeTheme) {
-    // UPDATE_THEME_COMMAND
+    // cmd: UPDATE_THEME_COMMAND
     const writable = this.getWritable();
     writable.__theme = {
       ...writable.__theme,
@@ -543,7 +544,7 @@ export class LinedCodeNode extends ElementNode {
     return writable.__theme;
   }
 
-  updateLines(): boolean {
+  updateEveryLine(): boolean {
     const self = this.getLatest();
     let isUpdated = false;
 
@@ -562,7 +563,7 @@ export class LinedCodeNode extends ElementNode {
 
   // Helpers
 
-  hasBreakOutLine(): boolean {
+  exitOnReturn(): boolean {
     const self = this.getLatest();
 
     if (!self.getSettings().isLockedBlock) {

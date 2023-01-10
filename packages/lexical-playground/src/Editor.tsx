@@ -21,7 +21,7 @@ import {TablePlugin} from '@lexical/react/LexicalTablePlugin';
 import * as React from 'react';
 import {useState} from 'react';
 
-import LinedCodeHighlighterPlugin from '../../lexical-code/src/v2/LinedCodePlugin';
+import LinedCodePlugin from '../../lexical-code/src/v2/LinedCodePlugin';
 import {createWebsocketProvider} from './collaboration';
 import {useSettings} from './context/SettingsContext';
 import {useSharedHistoryContext} from './context/SharedHistoryContext';
@@ -155,7 +155,7 @@ export default function Editor(): JSX.Element {
               ErrorBoundary={LexicalErrorBoundary}
             />
             <MarkdownShortcutPlugin />
-            <LinedCodeHighlighterPlugin />
+            <LinedCodePlugin />
             <ListPlugin />
             <CheckListPlugin />
             <ListMaxIndentLevelPlugin maxDepth={7} />

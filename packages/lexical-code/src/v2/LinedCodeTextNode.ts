@@ -172,15 +172,14 @@ export class LinedCodeTextNode extends TextNode {
   // Mutation
 
   // Prevent formatting (bold, underline, etc)
-  setFormat(format: number) {
+  setFormat(_format: number) {
     return this;
   }
 
   // Helpers
 
   getHighlightType() {
-    const self = this.getLatest();
-    return self.__highlightType;
+    return this.getLatest().__highlightType;
   }
 
   canBeEmpty() {

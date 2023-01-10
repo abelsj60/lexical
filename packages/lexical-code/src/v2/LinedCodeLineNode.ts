@@ -29,8 +29,8 @@ type SerializedLinedCodeLineNode = Spread<
   SerializedParagraphNode
 >;
 
-// Do we want to avoid a 'type'-mismatch error for ParagraphNode. We do!
-// re: complicated subclass types: https://stackoverflow.com/a/57211915
+// TS will kick a 'type'-mismatch error if we don't give it:
+// a helping hand: https://stackoverflow.com/a/57211915
 const TypelessParagraphNode: (new (key?: NodeKey) => ParagraphNode) &
   Omit<ParagraphNode, 'type'> = ParagraphNode;
 
@@ -57,7 +57,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
 
   // View
 
-  createDOM(config: EditorConfig): HTMLElement {
+  createDOM(): HTMLElement {
     const dom = document.createElement('div');
 
     const self = this.getLatest();
@@ -90,7 +90,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
   }
 
   updateDOM(
-    prevNode: LinedCodeLineNode,
+    _prevNode: LinedCodeLineNode,
     dom: HTMLElement,
     config: EditorConfig,
   ): boolean {
@@ -175,7 +175,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
 
     const codeNode = self.getParent() as LinedCodeNode;
 
-    if (codeNode.hasBreakOutLine()) {
+    if (codeNode.exitOnReturn()) {
       return codeNode.insertNewAfter();
     }
 
@@ -244,7 +244,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
       if (isEmpty) {
         return self.selectStart();
       } else if (canSelectCollapsedPoint) {
-        const {childFromLineOffset: nextChild, updatedOffset: nextOffset} =
+        const {child: nextChild, childOffset: nextOffset} =
           self.getChildFromLineOffset(anchorOffset);
         const canSelectNewChild = nextChild && typeof nextOffset === 'number';
 
@@ -252,9 +252,10 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
           return nextChild.select(nextOffset, nextOffset);
         }
       } else if (canSelectRange) {
-        const {childFromLineOffset: nextChildA, updatedOffset: nextOffsetA} =
+        // TODO: need to convert top point / bottom piont to anchor / focus?
+        const {child: nextChildA, childOffset: nextOffsetA} =
           self.getChildFromLineOffset(anchorOffset);
-        const {childFromLineOffset: nextChildB, updatedOffset: nextOffsetB} =
+        const {child: nextChildB, childOffset: nextOffsetB} =
           self.getChildFromLineOffset(focusOffset);
 
         const canSelectA = nextChildA && typeof nextOffsetA === 'number';
@@ -285,6 +286,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
   }
 
   addDiscreteLineClasses(lineClasses: string): boolean {
+    // cmd: ADD_DISCRETE_LINE_CLASSES_COMMAND
     const self = this.getLatest();
     const writable = this.getWritable();
     const discreteLineClasses = self.getDiscreteLineClasses();
@@ -316,6 +318,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
   }
 
   removeDiscreteLineClasses(lineClasses: string): boolean {
+    // cmd: REMOVE_DISCRETE_LINE_CLASSES_COMMAND
     const self = this.getLatest();
     const writable = this.getWritable();
     const discreteLineClasses = self.getDiscreteLineClasses();
@@ -377,23 +380,24 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
   getChildFromLineOffset(lineOffset: number) {
     const self = this.getLatest();
     const children = self.getChildren();
-    let updatedOffset = lineOffset;
+    let childOffset = lineOffset;
 
-    const childFromLineOffset = children.find((_node) => {
+    const child = children.find((_node) => {
       const textContentSize = _node.getTextContentSize();
 
-      if (textContentSize >= updatedOffset) {
+      if (textContentSize >= childOffset) {
         return true;
       }
 
-      updatedOffset -= textContentSize;
+      childOffset -= textContentSize;
 
       return false;
     });
 
     return {
-      childFromLineOffset,
-      updatedOffset: typeof updatedOffset === 'number' ? updatedOffset : null,
+      child,
+      // Honestly, the null is here to appease TS. I hope...
+      childOffset: typeof childOffset === 'number' ? childOffset : null,
     };
   }
 

@@ -76,7 +76,7 @@ function updateHighlightsWhenTyping(highlightNode: LinedCodeTextNode) {
   }
 }
 
-export function registerCodeHighlightingN(editor: LexicalEditor) {
+export function registerLinedCodeListeners(editor: LexicalEditor) {
   if (!editor.hasNodes([LinedCodeNode, LinedCodeLineNode, LinedCodeTextNode])) {
     throw new Error(
       'CodeHighlightPlugin: LinedCodeNode, LinedCodeLineNode, or LinedCodeTextNode not registered on editor',
@@ -298,11 +298,11 @@ export function registerCodeHighlightingN(editor: LexicalEditor) {
   );
 }
 
-export default function LinedCodeHighlighterPlugin(): JSX.Element | null {
+export default function LinedCodePlugin(): JSX.Element | null {
   const [editor] = useLexicalComposerContext();
 
   React.useEffect(() => {
-    return registerCodeHighlightingN(editor);
+    return registerLinedCodeListeners(editor);
   }, [editor]);
 
   return null;

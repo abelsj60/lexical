@@ -77,7 +77,7 @@ function swapParagraphForLinedCodeLine() {
       const codeNode = $getLinedCodeNode();
 
       if ($isLinedCodeNode(codeNode)) {
-        if (!codeNode.hasBreakOutLine()) {
+        if (!codeNode.exitOnReturn()) {
           return new LinedCodeLineNode();
         }
       }

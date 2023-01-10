@@ -62,18 +62,17 @@ function setPointAfterDent(
       : originalLineOffset > 0
       ? originalLineOffset - 1
       : originalLineOffset;
-    const {childFromLineOffset, updatedOffset} =
-      line.getChildFromLineOffset(offset);
-    const isValid = childFromLineOffset && typeof updatedOffset === 'number';
+    const {child, childOffset} = line.getChildFromLineOffset(offset);
+    const isValid = child && typeof childOffset === 'number';
 
     if (isValid) {
       const selection = $getSelection() as RangeSelection;
       const prevSelection = $getPreviousSelection() as RangeSelection;
       const textKeyForNewChildren = getTextKeyForNewChildren(point);
 
-      const key = textKeyForNewChildren || childFromLineOffset.getKey();
+      const key = textKeyForNewChildren || child.getKey();
       let type: 'text' | 'element' = 'text';
-      offset = updatedOffset;
+      offset = childOffset;
 
       // Give Lex a helping hand
       if (selection.isCollapsed()) {
@@ -220,9 +219,9 @@ function setMultiLineRangeWhenShiftingLines(
   topLine: LinedCodeLineNode,
   bottomLine: LinedCodeLineNode,
 ) {
-  const {childFromLineOffset: nextTopNode, updatedOffset: nextTopOffset} =
+  const {child: nextTopNode, childOffset: nextTopOffset} =
     topLine.getChildFromLineOffset(topLineOffset);
-  const {childFromLineOffset: nextBottomNode, updatedOffset: nextBottomOffset} =
+  const {child: nextBottomNode, childOffset: nextBottomOffset} =
     bottomLine.getChildFromLineOffset(bottomLineOffset);
 
   const isTopLine = typeof nextTopNode === 'undefined';
@@ -340,13 +339,13 @@ export function handleMoveTo(type: MoveTypes, event: KeyboardEvent): boolean {
     const lineOffset = line.getLineOffset(topPoint);
     const firstCharacterIndex = line.getFirstCharacterIndex(lineOffset);
     const lastCharacterIndex = line.getTextContentSize();
-    const {childFromLineOffset, updatedOffset} = isMoveToStart
+    const {child, childOffset} = isMoveToStart
       ? line.getChildFromLineOffset(firstCharacterIndex)
       : line.getChildFromLineOffset(lastCharacterIndex);
 
-    if ($isLinedCodeTextNode(childFromLineOffset)) {
-      if (typeof updatedOffset === 'number') {
-        childFromLineOffset.select(updatedOffset, updatedOffset);
+    if ($isLinedCodeTextNode(child)) {
+      if (typeof childOffset === 'number') {
+        child.select(childOffset, childOffset);
       }
     }
   }

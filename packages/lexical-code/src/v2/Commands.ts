@@ -4,7 +4,6 @@ import {createCommand, LexicalCommand, LexicalEditor} from 'lexical';
 import {LinedCodeNodeTheme} from './LinedCodeNode';
 
 // LinedCodeNode
-
 export const CODE_TO_PLAIN_TEXT_COMMAND: LexicalCommand<void> = createCommand();
 export const SET_LANGUAGE_COMMAND: LexicalCommand<string> = createCommand(); // add
 export const TOGGLE_IS_LOCKED_BLOCK: LexicalCommand<void> = createCommand(); // add
