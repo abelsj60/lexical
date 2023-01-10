@@ -110,6 +110,9 @@
   position: absolute;
   top: 0;
 }
+.code-line {
+  white-space: pre;
+}
 .code-line:hover {
   background-color: #e7bfe1;
 }

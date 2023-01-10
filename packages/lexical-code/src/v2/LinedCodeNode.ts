@@ -49,7 +49,6 @@ import {
 export type Unserializeable = null;
 export interface LinedCodeNodeOptions {
   activateTabs?: boolean | null;
-  addPreOnExportDOM?: boolean | null;
   defaultLanguage?: string | null;
   initialLanguage?: string | null;
   isLockedBlock?: boolean | null;
@@ -86,8 +85,6 @@ export class LinedCodeNode extends ElementNode {
   /** @internal */
   __activateTabs: boolean | null;
   /** @internal */
-  __addPreOnExportDOM: boolean | null;
-  /** @internal */
   __defaultLanguage: string | null;
   /** @internal */
   __isLockedBlock: boolean | null;
@@ -113,7 +110,6 @@ export class LinedCodeNode extends ElementNode {
   constructor(options?: LinedCodeNodeOptions, key?: NodeKey) {
     const {
       activateTabs,
-      addPreOnExportDOM,
       defaultLanguage,
       isLockedBlock,
       initialLanguage,
@@ -134,7 +130,6 @@ export class LinedCodeNode extends ElementNode {
     //    3. fallback values baked directly into the replacement API function
 
     this.__activateTabs = addOptionOrNull(activateTabs);
-    this.__addPreOnExportDOM = addOptionOrNull(addPreOnExportDOM);
     this.__defaultLanguage = addOptionOrNull(
       mapToPrismLanguage(defaultLanguage || undefined),
     );
@@ -215,22 +210,9 @@ export class LinedCodeNode extends ElementNode {
   }
 
   exportDOM(editor: LexicalEditor): DOMExportOutput {
-    const self = this.getLatest();
     const {element} = super.exportDOM(editor);
 
     return {
-      after: (generatedElement: HTMLElement | null | undefined) => {
-        if (generatedElement) {
-          if (self.getSettings().addPreOnExportDOM) {
-            const preElement = document.createElement('pre');
-            preElement.appendChild(generatedElement);
-
-            return preElement;
-          }
-        }
-
-        return generatedElement;
-      },
       element,
     };
   }
@@ -675,7 +657,6 @@ export class LinedCodeNode extends ElementNode {
 
     return {
       activateTabs: self.__activateTabs,
-      addPreOnExportDOM: self.__addPreOnExportDOM,
       defaultLanguage: self.__defaultLanguage,
       isLockedBlock: self.__isLockedBlock,
       language: self.__language,

@@ -34,10 +34,6 @@ export function swapLinedCodeNodeForFullyConfiguredVersion(
           settings.activateTabs,
           defaults.activateTabs || false,
         ),
-        addPreOnExportDOM: addOptionOrDefault(
-          settings.addPreOnExportDOM,
-          defaults.addPreOnExportDOM || false,
-        ),
         defaultLanguage: addOptionOrDefault(
           mapToPrismLanguage(
             settings.defaultLanguage ||
