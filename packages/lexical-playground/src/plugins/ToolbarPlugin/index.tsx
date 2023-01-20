@@ -40,10 +40,10 @@ import {
 } from '@lexical/utils';
 import {
   $createParagraphNode,
+  $createTextNode,
   $getNodeByKey,
   $getRoot,
   $getSelection,
-  $isParagraphNode,
   $isRangeSelection,
   $isRootOrShadowRoot,
   $isTextNode,
@@ -51,10 +51,12 @@ import {
   CAN_UNDO_COMMAND,
   COMMAND_PRIORITY_CRITICAL,
   DEPRECATED_$isGridSelection,
+  ElementNode,
   FORMAT_ELEMENT_COMMAND,
   FORMAT_TEXT_COMMAND,
   INDENT_CONTENT_COMMAND,
   LexicalEditor,
+  LexicalNode,
   NodeKey,
   OUTDENT_CONTENT_COMMAND,
   REDO_COMMAND,
@@ -66,12 +68,17 @@ import * as React from 'react';
 import {IS_APPLE} from 'shared/environment';
 
 import {dispatchCodeToPlainTextCommand} from '../../../../lexical-code/src/v2/Commands';
-import {$isLinedCodeLineNode} from '../../../../lexical-code/src/v2/LinedCodeLineNode';
+import {
+  $createLinedCodeLineNode,
+  $isLinedCodeLineNode,
+  LinedCodeLineNode,
+} from '../../../../lexical-code/src/v2/LinedCodeLineNode';
 import {
   $createLinedCodeNode,
   $isLinedCodeNode,
   LinedCodeNode,
 } from '../../../../lexical-code/src/v2/LinedCodeNode';
+import {$isLinedCodeTextNode} from '../../../../lexical-code/src/v2/LinedCodeTextNode';
 import {
   CODE_LANGUAGE_FRIENDLY_NAME_MAP,
   CODE_LANGUAGE_MAP,
@@ -171,8 +178,10 @@ function BlockFormatDropDown({
           $isRangeSelection(selection) ||
           DEPRECATED_$isGridSelection(selection)
         ) {
-          dispatchCodeToPlainTextCommand(editor);
-          $setBlocksType_experimental(selection, () => $createParagraphNode());
+          // dispatchCodeToPlainTextCommand(editor);
+          $setBlocksType_experimental(selection, () => $createParagraphNode(), {
+            collapseShadowRootNodes: true,
+          });
         }
       });
     }
@@ -187,9 +196,13 @@ function BlockFormatDropDown({
           DEPRECATED_$isGridSelection(selection)
         ) {
           // $wrapNodes(selection, () => $createHeadingNode(headingSize));
-          dispatchCodeToPlainTextCommand(editor);
-          $setBlocksType_experimental(selection, () =>
-            $createHeadingNode(headingSize),
+          // dispatchCodeToPlainTextCommand(editor);
+          $setBlocksType_experimental(
+            selection,
+            () => $createHeadingNode(headingSize),
+            {
+              collapseShadowRootNodes: true,
+            },
           );
         }
       });
@@ -201,7 +214,7 @@ function BlockFormatDropDown({
       dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
     } else {
-      dispatchCodeToPlainTextCommand(editor);
+      // dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined);
     }
   };
@@ -211,7 +224,7 @@ function BlockFormatDropDown({
       dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined);
     } else {
-      dispatchCodeToPlainTextCommand(editor);
+      // dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined);
     }
   };
@@ -221,7 +234,7 @@ function BlockFormatDropDown({
       dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
     } else {
-      dispatchCodeToPlainTextCommand(editor);
+      // dispatchCodeToPlainTextCommand(editor);
       editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined);
     }
   };
@@ -234,63 +247,138 @@ function BlockFormatDropDown({
           $isRangeSelection(selection) ||
           DEPRECATED_$isGridSelection(selection)
         ) {
-          dispatchCodeToPlainTextCommand(editor);
-          $setBlocksType_experimental(selection, () => $createQuoteNode());
+          // dispatchCodeToPlainTextCommand(editor);
+          $setBlocksType_experimental(selection, () => $createQuoteNode(), {
+            collapseShadowRootNodes: true,
+          });
         }
       });
     }
   };
 
   const formatCode = () => {
-    // <-- HERE
+    // <-HERE
     if (blockType !== 'code') {
-      editor.update(() => {
-        const selection = $getSelection();
+      let codeNodeIndex = -1;
 
-        if (
-          $isRangeSelection(selection) ||
-          DEPRECATED_$isGridSelection(selection)
-        ) {
-          const selectionNodes = selection.getNodes();
-          const isCollpased = selection.isCollapsed();
-          // use original offset for collapsed selections
-          const originalOffset = selection.anchor.offset;
+      editor.update(
+        () => {
+          const selection = $getSelection();
 
-          const codeNode = $createLinedCodeNode();
-          const textContent = isCollpased
-            ? selectionNodes.reduce((fullText, _node) => {
-                const text = _node.getTextContent();
+          if ($isRangeSelection(selection)) {
+            const createElement = (
+              node: ElementNode | LexicalNode | undefined,
+            ) => {
+              const line = $createLinedCodeLineNode();
 
-                if (_node.getTextContent()) {
-                  fullText += text;
+              if (node !== undefined) {
+                line.append($createTextNode(node.getTextContent()));
+              }
+
+              return line;
+            };
+            const createParentBlock = (lines: LexicalNode[]) => {
+              const codeNode = $createLinedCodeNode();
+              codeNode.append(...(lines as LinedCodeLineNode[]));
+              return codeNode;
+            };
+            codeNodeIndex = $setBlocksType_experimental(
+              selection,
+              createElement,
+              {
+                collapseShadowRootNodes: true,
+                createParentBlock,
+              },
+            )[0].getIndexWithinParent();
+          }
+        },
+        {
+          onUpdate: () => {
+            // for reasons unknown, this selection won't update
+            // anywhere but in this onUpdate editor.update
+            editor.update(() => {
+              if (codeNodeIndex > -1) {
+                const selection = $getSelection();
+                const codeNode = $getRoot().getChildAtIndex(codeNodeIndex);
+
+                if ($isLinedCodeNode(codeNode)) {
+                  const line = codeNode.getFirstChild() as LinedCodeLineNode;
+
+                  if ($isRangeSelection(selection)) {
+                    const anchorParent = selection.anchor.getNode().getParent();
+
+                    // the selection broke. fix it.
+                    if (anchorParent?.getKey() !== line.getKey()) {
+                      const code = line.getFirstChild();
+
+                      if ($isLinedCodeTextNode(code)) {
+                        selection.anchor.set(code.getKey(), 0, 'text');
+                        selection.focus.set(code.getKey(), 0, 'text');
+                      } else {
+                        selection.anchor.set(line.getKey(), 0, 'element');
+                        selection.focus.set(line.getKey(), 0, 'element');
+                      }
+                    }
+                  }
                 }
-
-                return fullText;
-              }, '')
-            : selection.getTextContent();
-
-          selection.insertNodes([codeNode]);
-          codeNode.insertRawText(textContent);
-
-          const firstLine = codeNode.getFirstChild();
-          const firstSelectionNode = selectionNodes[0];
-
-          // remove the paragraph we're replacing
-          if ($isTextNode(firstSelectionNode)) {
-            const paragraph = firstSelectionNode.getParent();
-
-            if ($isParagraphNode(paragraph)) {
-              paragraph.remove();
-            }
-          }
-
-          if ($isLinedCodeLineNode(firstLine)) {
-            firstLine.selectNext(isCollpased ? originalOffset : 0);
-          }
-        }
-      });
+              }
+            });
+          },
+        },
+      );
     }
   };
+
+  // const formatCode = () => {
+  //   // <-- HERE
+  //   if (blockType !== 'code') {
+  //     editor.update(() => {
+  //       const selection = $getSelection();
+
+  //       if (
+  //         $isRangeSelection(selection) ||
+  //         DEPRECATED_$isGridSelection(selection)
+  //       ) {
+  //         const selectionNodes = selection.getNodes();
+  //         const isCollpased = selection.isCollapsed();
+  //         // use original offset for collapsed selections
+  //         const originalOffset = selection.anchor.offset;
+
+  //         const codeNode = $createLinedCodeNode();
+  //         const textContent = isCollpased
+  //           ? selectionNodes.reduce((fullText, _node) => {
+  //               const text = _node.getTextContent();
+
+  //               if (_node.getTextContent()) {
+  //                 fullText += text;
+  //               }
+
+  //               return fullText;
+  //             }, '')
+  //           : selection.getTextContent();
+
+  //         selection.insertNodes([codeNode]);
+  //         codeNode.insertRawText(textContent);
+
+  //         const firstLine = codeNode.getFirstChild();
+  //         const firstSelectionNode = selectionNodes[0];
+
+  //         // remove the paragraph we're replacing
+  //         if ($isTextNode(firstSelectionNode)) {
+  //           const paragraph = firstSelectionNode.getParent();
+
+  //           if ($isParagraphNode(paragraph)) {
+  //             paragraph.remove();
+  //           }
+  //         }
+
+  //         if ($isLinedCodeLineNode(firstLine)) {
+  //           firstLine.selectNext(isCollpased ? originalOffset : 0);
+  //         }
+  //       }
+  //     });
+  //   }
+  // };
 
   return (
     <DropDown

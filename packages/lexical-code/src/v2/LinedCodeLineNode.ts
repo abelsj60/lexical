@@ -17,7 +17,12 @@ import {
   addClassNamesToElement,
   removeClassNamesFromElement,
 } from '../../../lexical-utils/src';
-import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
+import {
+  $createLinedCodeNode,
+  $isLinedCodeNode,
+  LinedCodeNode,
+} from './LinedCodeNode';
+import {$isLinedCodeTextNode, LinedCodeTextNode} from './LinedCodeTextNode';
 import {$getLinesFromSelection, isTabOrSpace} from './utils';
 
 type SerializedLinedCodeLineNode = Spread<
@@ -31,6 +36,7 @@ type SerializedLinedCodeLineNode = Spread<
 
 // TS will kick a 'type'-mismatch error if we don't give it:
 // a helping hand: https://stackoverflow.com/a/57211915
+
 const TypelessParagraphNode: (new (key?: NodeKey) => ParagraphNode) &
   Omit<ParagraphNode, 'type'> = ParagraphNode;
 
@@ -90,7 +96,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
   }
 
   updateDOM(
-    _prevNode: LinedCodeLineNode,
+    _prevNode: ParagraphNode | LinedCodeLineNode,
     dom: HTMLElement,
     config: EditorConfig,
   ): boolean {
@@ -159,6 +165,34 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
 
   // Mutation
 
+  // Note: Only append code for one line, not more!
+  append(...nodesToAppend: LexicalNode[]): this {
+    const self = this.getLatest();
+    let codeNode: LinedCodeNode | null;
+
+    const readyToAppend = nodesToAppend.reduce((ready, node) => {
+      if ($isLinedCodeTextNode(node)) {
+        ready.push(node);
+      } else if ($isTextNode(node)) {
+        codeNode = self.getParent();
+
+        if (!$isLinedCodeNode(codeNode)) {
+          // This means the line's new. It hasn't been
+          // appended to a CodeNode yet. Make one!
+
+          codeNode = $createLinedCodeNode();
+        }
+
+        const code = codeNode.getHighlightNodes(node.getTextContent());
+        ready.push(...code);
+      }
+
+      return ready;
+    }, [] as LinedCodeTextNode[]);
+
+    return super.append(...readyToAppend);
+  }
+
   collapseAtStart(): boolean {
     const self = this.getLatest();
     const codeNode = self.getParent();
@@ -170,63 +204,45 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     return false;
   }
 
-  insertNewAfter(): LinedCodeLineNode | ParagraphNode {
+  insertNewAfter(): ParagraphNode | LinedCodeLineNode {
+    const selection = $getSelection();
     const self = this.getLatest();
-
     const codeNode = self.getParent() as LinedCodeNode;
 
     if (codeNode.exitOnReturn()) {
       return codeNode.insertNewAfter();
     }
 
-    const selection = $getSelection();
-
     if ($isRangeSelection(selection)) {
       const {
         topPoint,
         splitText = [],
         topLine: line,
-        lineRange: linesForUpdate,
       } = $getLinesFromSelection(selection);
 
-      if ($isLinedCodeLineNode(line) && Array.isArray(linesForUpdate)) {
+      if ($isLinedCodeLineNode(line)) {
         const newLine = $createLinedCodeLineNode();
-
         const lineOffset = line.getLineOffset(topPoint);
         const firstCharacterIndex = line.getFirstCharacterIndex(lineOffset);
-        const lineSpacers =
-          firstCharacterIndex > 0
-            ? line.getTextContent().slice(0, firstCharacterIndex)
-            : '';
-        const [beforeSplit, afterSplit] = splitText;
-        const shouldTrimEnd = afterSplit
-          .slice(0, lineSpacers.length)
-          .split('')
-          .every((char) => {
-            return isTabOrSpace(char);
-          });
-        const afterSplitAndSpacers = `${lineSpacers}${
-          shouldTrimEnd ? afterSplit.trimEnd() : afterSplit
-        }`;
-        const code = codeNode.getHighlightNodes(afterSplitAndSpacers);
 
-        newLine.append(...code);
+        if (firstCharacterIndex > 0) {
+          const [textBeforeSplit] = splitText;
+          const whitespace = textBeforeSplit.substring(0, firstCharacterIndex);
+          const code = codeNode.getHighlightNodes(whitespace);
 
-        line.insertAfter(newLine);
-        codeNode.replaceLineCode(beforeSplit, line);
-        linesForUpdate.slice(1).forEach((ln) => ln.remove());
+          newLine.append(...code);
+          line.insertAfter(newLine);
 
-        const hasChildren = newLine.getChildrenSize() > 0;
+          // Lexical doesn't seem able to select the end of whitespace in
+          // the newLine from here, so we'll use a mutation listener
+          // ('created') to set it ourselves.
 
-        newLine.setDirection(self.getDirection());
-        newLine.selectNext(hasChildren ? lineSpacers.length : 0);
-
-        return newLine;
+          return newLine;
+        }
       }
     }
 
-    // never called, here for ts...
-    return $createLinedCodeLineNode();
+    return super.insertNewAfter();
   }
 
   selectNext(anchorOffset?: number, focusOffset?: number) {
@@ -355,6 +371,17 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
 
   // Helpers
 
+  getParentTag() {
+    const self = this.getLatest();
+    const codeNode = self.getParent();
+
+    if ($isLinedCodeNode(codeNode)) {
+      return codeNode.getTag();
+    }
+
+    return '';
+  }
+
   getDiscreteLineClasses() {
     return this.getLatest().__discreteLineClasses;
   }
@@ -401,7 +428,7 @@ export class LinedCodeLineNode extends TypelessParagraphNode {
     };
   }
 
-  getFirstCharacterIndex(lineOffset: number): number {
+  getFirstCharacterIndex(lineOffset?: number): number {
     const self = this.getLatest();
     const text = self.getTextContent();
     const splitText = text.slice(0, lineOffset).split('');

@@ -8,7 +8,6 @@ import {
   $getSelection,
   $isRangeSelection,
   COMMAND_PRIORITY_LOW,
-  INSERT_PARAGRAPH_COMMAND,
   KEY_ARROW_DOWN_COMMAND,
   KEY_ARROW_UP_COMMAND,
   LexicalEditor,
@@ -17,6 +16,7 @@ import {
   COMMAND_PRIORITY_EDITOR,
   KEY_TAB_COMMAND,
   PASTE_COMMAND,
+  $getNodeByKey,
 } from 'lexical';
 import {
   CODE_TO_PLAIN_TEXT_COMMAND,
@@ -29,10 +29,9 @@ import {
   handleBorders,
   handleDents,
   handleMoveTo,
-  handlePlainTextConversion,
   handleShiftingLines,
 } from './Handlers';
-import {LinedCodeTextNode} from './LinedCodeTextNode';
+import {$isLinedCodeTextNode, LinedCodeTextNode} from './LinedCodeTextNode';
 import {$isLinedCodeLineNode, LinedCodeLineNode} from './LinedCodeLineNode';
 import {$isLinedCodeNode, LinedCodeNode} from './LinedCodeNode';
 import {$getLinedCodeNode, $getLinesFromSelection} from './utils';
@@ -101,13 +100,60 @@ export function registerLinedCodeListeners(editor: LexicalEditor) {
         );
       }
     }),
+    editor.registerMutationListener(LinedCodeNode, (mutations) => {
+      editor.update(() => {
+        for (const [key, type] of mutations) {
+          // We should never select a LinedCodeNode if it has a line
+          // in it, which it always should! An example of this bug
+          // can be seen in @lexical/markdown. It will select the
+          // LinedCodeNode when passed triple ticks with a space.
+          // This mutation listener wards against this bug!
+
+          if (type === 'created') {
+            const node = $getNodeByKey(key);
+
+            if ($isLinedCodeNode(node)) {
+              const startingLine = node.getFirstChild();
+
+              if ($isLinedCodeLineNode(startingLine)) {
+                startingLine.selectNext(0);
+              }
+            }
+          }
+        }
+      });
+    }),
+    editor.registerMutationListener(LinedCodeLineNode, (mutations) => {
+      editor.update(() => {
+        for (const [key, type] of mutations) {
+          // Resolves inability to select the end of an indent
+          // when creating a new line via .insertNewAfter().
+          if (type === 'created') {
+            const node = $getNodeByKey(key);
+
+            if ($isLinedCodeLineNode(node)) {
+              const firstChild = node.getFirstChild();
+
+              if ($isLinedCodeTextNode(firstChild)) {
+                const line = firstChild.getParent() as LinedCodeLineNode;
+                const firstCharacterIndex = line.getFirstCharacterIndex();
+
+                if (firstCharacterIndex > 0) {
+                  firstChild.select(firstCharacterIndex, firstCharacterIndex);
+                }
+              }
+            }
+          }
+        }
+      });
+    }),
     editor.registerCommand(
       CODE_TO_PLAIN_TEXT_COMMAND,
-      () => {
+      (payload) => {
         const codeNode = $getLinedCodeNode();
 
         if ($isLinedCodeNode(codeNode)) {
-          return handlePlainTextConversion();
+          return codeNode.convertToPlainText(payload);
         }
 
         return false;
@@ -190,26 +236,26 @@ export function registerLinedCodeListeners(editor: LexicalEditor) {
       },
       COMMAND_PRIORITY_LOW,
     ),
-    editor.registerCommand(
-      INSERT_PARAGRAPH_COMMAND,
-      () => {
-        const selection = $getSelection();
+    // editor.registerCommand(
+    //   INSERT_PARAGRAPH_COMMAND,
+    //   () => {
+    //     const selection = $getSelection();
 
-        if ($isRangeSelection(selection)) {
-          const anchor = selection.anchor;
-          const anchorNode = anchor.getNode();
-          const lineNode = anchorNode.getParent();
+    //     if ($isRangeSelection(selection)) {
+    //       const anchor = selection.anchor;
+    //       const anchorNode = anchor.getNode();
+    //       const lineNode = anchorNode.getParent();
 
-          if ($isLinedCodeLineNode(lineNode)) {
-            lineNode.insertNewAfter();
-            return true;
-          }
-        }
+    //       if ($isLinedCodeLineNode(lineNode)) {
+    //         lineNode.insertNewAfter();
+    //         return true;
+    //       }
+    //     }
 
-        return false;
-      },
-      COMMAND_PRIORITY_LOW,
-    ),
+    //     return false;
+    //   },
+    //   COMMAND_PRIORITY_LOW,
+    // ),
     editor.registerCommand(
       KEY_TAB_COMMAND,
       (payload) => {

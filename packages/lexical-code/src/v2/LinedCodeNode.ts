@@ -144,6 +144,10 @@ export class LinedCodeNode extends ElementNode {
 
   // View
 
+  getTag() {
+    return 'code';
+  }
+
   createDOM(config: EditorConfig): HTMLElement {
     const self = this.getLatest();
     const dom = document.createElement('code');
@@ -282,6 +286,7 @@ export class LinedCodeNode extends ElementNode {
 
   static importJSON(serializedNode: SerializedCodeNodeN): LinedCodeNode {
     const node = $createLinedCodeNode(serializedNode.options);
+    node.setFormat(serializedNode.format); // ??
     return node;
   }
 
@@ -380,7 +385,7 @@ export class LinedCodeNode extends ElementNode {
     return codeLines;
   }
 
-  convertToPlainText(): boolean {
+  convertToPlainText(oneLine?: boolean, preserve?: boolean): boolean {
     // cmd: CODE_TO_PLAIN_TEXT_COMMAND
     const root = $getRoot();
 
@@ -388,20 +393,29 @@ export class LinedCodeNode extends ElementNode {
       const self = this.getLatest();
       const children = self.getChildren();
       const index = self.getIndexWithinParent();
+      const rawText = self.getRawText(children);
+      let paragraphs = [] as LexicalNode[];
 
       // must remove before getting plainTextNodes to ensure you get
       // paragraphs not code lines from the nodeReplacer
+
       self.remove();
 
-      const paragraphs = children.reduce((lines, line) => {
+      if (oneLine) {
         const paragraph = $createParagraphNode();
-        const textNode = $createTextNode(line.getTextContent());
+        paragraph.append($createTextNode(rawText));
+        paragraphs = [paragraph];
+      } else {
+        paragraphs = rawText.split('\n').reduce((lines, line) => {
+          const paragraph = $createParagraphNode();
+          const textNode = $createTextNode(line || '');
 
-        paragraph.append(textNode);
-        lines.push(paragraph);
+          paragraph.append(textNode);
+          lines.push(paragraph);
 
-        return lines;
-      }, [] as ParagraphNode[]);
+          return lines;
+        }, [] as ParagraphNode[]);
+      }
 
       root.splice(index, 0, paragraphs);
       paragraphs[0].selectStart();
@@ -648,6 +662,11 @@ export class LinedCodeNode extends ElementNode {
     const children = self.getChildren();
 
     return self.getRawText(children);
+  }
+
+  getLanguage() {
+    // note: method included for parity with CodeNode
+    return this.getLatest().getSettings().language;
   }
 
   getSettings(): Omit<LinedCodeNodeOptions, 'initialLanguage'> & {
